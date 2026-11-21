@@ -1,0 +1,98 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Freevo mockup – hướng A</title>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F6F7F9;--sf:#fff;--tx:#14181F;--mu:#5B6573;--bd:#E2E5EA;--ac:#3B4BDB;--ad:#15803D;--adb:#DCFCE7;--md:#B45309;--mdb:#FEF3C7;--rm:#B91C1C;--rmb:#FEE2E2;--r:8px}
+*{box-sizing:border-box}body{margin:0;background:#E9EBEF;color:var(--tx);font:15px/1.5 'Be Vietnam Pro',sans-serif}
+.mono{font-family:'JetBrains Mono',monospace}
+.bar{position:sticky;top:0;z-index:5;background:#14181F;color:#fff;display:flex;gap:8px;align-items:center;padding:10px 16px;flex-wrap:wrap}
+.bar b{margin-right:8px}.bar button{background:#2A303B;color:#fff;border:0;border-radius:6px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}
+.bar button.on{background:var(--ac)}.bar .ok{margin-left:auto;background:#15803D}
+.stage{max-width:1100px;margin:24px auto;padding:0 16px}
+.frame{display:none}.frame.on{display:block}
+.note{font-size:13px;color:var(--mu);margin:0 0 12px}
+.app{background:var(--bg);border:1px solid var(--bd);border-radius:12px;overflow:hidden;min-height:560px}
+.top{background:var(--sf);border-bottom:1px solid var(--bd);padding:12px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{font-weight:700;letter-spacing:-.02em}.logo i{color:var(--ac);font-style:normal}
+.pad{padding:20px}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--bd);font-size:14px}
+th{font-size:12px;color:var(--mu);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.btn{display:inline-block;border:1px solid var(--bd);background:var(--sf);border-radius:var(--r);padding:7px 14px;font-size:14px;font-weight:500}
+.btn.p{background:var(--ac);border-color:var(--ac);color:#fff}.btn.d{color:var(--rm)}
+.chip{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:#EEF0F4;color:var(--mu)}
+.chip.v{font-family:'JetBrains Mono',monospace;background:#E8EAFC;color:var(--ac);font-weight:600}
+.chip.o{background:var(--mdb);color:var(--md)}.chip.g{background:var(--adb);color:var(--ad)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--bd);margin-bottom:16px;overflow-x:auto}
+.tabs span{padding:8px 14px;font-size:14px;color:var(--mu);border-bottom:2px solid transparent;white-space:nowrap}.tabs .a{color:var(--ac);border-color:var(--ac);font-weight:600}
+.grid2{display:grid;grid-template-columns:1.1fr 1fr;gap:16px}
+@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+.chg{display:flex;gap:10px;padding:12px 14px;border-left:4px solid;border-bottom:1px solid var(--bd);align-items:flex-start}
+.chg.add{border-color:var(--ad);background:var(--adb)}.chg.mod{border-color:var(--md);background:var(--mdb)}.chg.rm{border-color:var(--rm);background:var(--rmb)}
+.chg .g{font-family:'JetBrains Mono',monospace;font-weight:600;width:16px}
+.chg.off{opacity:.45;text-decoration:line-through}
+.chg.sel{outline:2px solid var(--ac);outline-offset:-2px}
+.tg{margin-left:auto;width:36px;height:20px;border-radius:99px;background:var(--ac);position:relative;flex:none}.tg:after{content:"";position:absolute;right:2px;top:2px;width:16px;height:16px;background:#fff;border-radius:50%}
+.tg.off{background:#C4C9D2}.tg.off:after{right:auto;left:2px}
+.bub{max-width:85%;padding:8px 12px;border-radius:16px;margin:8px 0;font-size:14px;background:#fff;border:1px solid var(--bd)}
+.bub.me{margin-left:auto;background:#E8EAFC;border-color:#D3D7F7}
+.bub small{display:block;color:var(--mu);font-size:11px;margin-bottom:2px}
+.bub.hl{outline:2px solid var(--ac);background:#F2F3FE}.bub mark{background:var(--mdb);padding:0 2px;border-radius:3px}
+.price{background:var(--sf);border-top:1px solid var(--bd);display:flex;gap:28px;padding:14px 20px;flex-wrap:wrap;align-items:center}
+.price div small{display:block;color:var(--mu);font-size:12px}.price div b{font-size:20px}
+.tl{padding:8px 4px}.tl .row{display:flex;gap:14px;padding:10px 0;position:relative}
+.tl .row:before{content:"";position:absolute;left:19px;top:34px;bottom:-6px;width:2px;background:var(--bd)}.tl .row:last-child:before{display:none}
+.phone{width:340px;max-width:100%;margin:0 auto;background:var(--bg);border:10px solid #14181F;border-radius:32px;min-height:600px;padding:20px 16px}
+.big{display:block;width:100%;text-align:center;padding:14px;border-radius:12px;font-weight:600;font-size:16px;min-height:44px;margin-top:10px}
+</style></head><body>
+<div class="bar"><b>Freevo · mockup A</b>
+<button class="on" data-f="0">1 Khách hàng</button><button data-f="1">2 Chi tiết khách</button><button data-f="2">3 Duyệt PR</button><button data-f="3">4 Phiên bản</button><button data-f="4">5 Khách xác nhận</button>
+<button class="ok" id="nx">Duyệt khung → tiếp</button></div>
+<div class="stage">
+
+<section class="frame on"><p class="note">Khung 1 · <span class="mono">/</span> — danh sách khách, thấy ngay PR nào đang chờ duyệt.</p>
+<div class="app"><div class="top"><span class="logo">free<i>vo</i></span><span class="chip">Anh Minh đang là khách hoạt động (Zalo)</span><span style="margin-left:auto" class="btn p">+ Thêm khách</span></div>
+<div class="pad"><div class="card"><table><tr><th>Khách</th><th>Phiên bản</th><th>Tin chưa xử lý</th><th>PR</th><th>Hợp đồng</th></tr>
+<tr><td><b>Anh Minh</b><br><span style="color:var(--mu);font-size:13px">Quán cafe Mộc</span></td><td><span class="chip v">v2</span></td><td>7 tin Zalo</td><td><span class="chip o">1 đang mở</span></td><td class="mono">20.000.000đ</td></tr>
+<tr><td><b>Chị Lan</b><br><span style="color:var(--mu);font-size:13px">Shop hoa Lan</span></td><td><span class="chip v">v1</span></td><td>0</td><td><span class="chip g">Đã merge</span></td><td class="mono">12.000.000đ</td></tr>
+<tr><td><b>Demo dự phòng</b><br><span style="color:var(--mu);font-size:13px">Nhập tay</span></td><td><span class="chip v">v1</span></td><td>0</td><td>—</td><td class="mono">8.000.000đ</td></tr></table></div></div></div></section>
+
+<section class="frame"><p class="note">Khung 2 · <span class="mono">/clients/[id]</span> — tab Hộp thư: tin nhắn Zalo/Gmail và nút tạo PR.</p>
+<div class="app"><div class="top"><span class="logo">free<i>vo</i></span><span>Anh Minh</span><span class="chip v">v2</span></div>
+<div class="pad"><div class="tabs"><span>Thông tin</span><span class="a">Hộp thư (7)</span><span>Yêu cầu hiện tại</span><span>Phiên bản</span><span>PR</span></div>
+<div class="grid2"><div class="card pad"><div class="bub"><small>Zalo · 09:12</small>Em muốn thêm thanh toán VNPay nha anh</div><div class="bub me"><small>Bạn · 09:15</small>Ok anh, để em báo giá</div><div class="bub"><small>Zalo · 09:40</small>À thôi, VNPay phức tạp, dùng chuyển khoản thôi</div><div class="bub"><small>Gmail · 10:02</small>Bỏ luôn mục Blog nhé, mình chưa cần.</div><div class="bub"><small>Zalo · 10:20</small>Trang chủ làm thêm banner khuyến mãi</div></div>
+<div class="card pad"><b>Chưa gom vào PR</b><p style="color:var(--mu);margin:6px 0 14px">7 tin nhắn mới từ 09:12. AI sẽ lấy ý chốt cuối cùng của khách.</p><span class="btn p">Tạo PR từ 7 tin nhắn</span><hr style="border:0;border-top:1px solid var(--bd);margin:16px 0"><b>Yêu cầu hiện tại · v2</b><p class="mono" style="font-size:13px;color:var(--mu);margin:6px 0">REQ-001 Trang chủ<br>REQ-002 Menu sản phẩm<br>REQ-003 Giỏ hàng<br>REQ-004 Blog<br>REQ-006 Đặt bàn</p></div></div></div></div></section>
+
+<section class="frame"><p class="note">Khung 3 · <span class="mono">/pr/[id]</span> — màn hình quan trọng nhất. Bấm một thay đổi thì bằng chứng bên phải sáng lên; tắt toggle thì giá tính lại.</p>
+<div class="app"><div class="top"><span class="logo">free<i>vo</i></span><span><b>PR #12</b> · Anh Minh · <span class="mono">v2 → v3</span></span><span style="margin-left:auto" class="btn d">Từ chối</span><span class="btn p">Merge 2/3 thay đổi</span></div>
+<div class="pad"><div class="grid2"><div class="card" style="overflow:hidden">
+<div class="chg add sel"><span class="g">+</span><div><b>Thanh toán chuyển khoản</b><br><span style="font-size:13px;color:var(--mu)">Hiển thị STK và mã QR khi đặt hàng · 6h</span></div><span class="tg"></span></div>
+<div class="chg rm"><span class="g">−</span><div><b>Blog</b><br><span style="font-size:13px;color:var(--mu)">REQ-004 · khách bỏ hẳn · −8h</span></div><span class="tg"></span></div>
+<div class="chg mod off"><span class="g">~</span><div><b>Banner khuyến mãi trang chủ</b><br><span style="font-size:13px;color:var(--mu)">REQ-001 · +3h</span></div><span class="tg off"></span></div></div>
+<div class="card pad"><b style="font-size:13px;color:var(--mu)">BẰNG CHỨNG</b>
+<div class="bub"><small>Zalo · 09:12</small>Em muốn thêm thanh toán VNPay nha anh</div>
+<div class="bub hl"><small>Zalo · 09:40 · ý chốt</small><mark>VNPay phức tạp, dùng chuyển khoản thôi</mark></div></div></div></div>
+<div class="price"><div><small>Hợp đồng</small><b class="mono">20.000.000đ</b></div><div><small>Công</small><b class="mono">40h → 38h</b></div><div><small>Giá gợi ý</small><b class="mono" style="color:var(--ac)">19.000.000đ</b></div><div><small>Thực nhận (thuế 10%)</small><b class="mono">17.100.000đ</b></div></div></div></section>
+
+<section class="frame"><p class="note">Khung 4 · tab Phiên bản — lịch sử kiểu git, có Rollback và nút gửi link xác nhận.</p>
+<div class="app"><div class="top"><span class="logo">free<i>vo</i></span><span>Anh Minh</span><span class="chip v">v3</span></div>
+<div class="pad"><div class="tabs"><span>Thông tin</span><span>Hộp thư</span><span>Yêu cầu hiện tại</span><span class="a">Phiên bản</span><span>PR</span></div>
+<div class="card pad tl">
+<div class="row"><span class="chip v">v3</span><div><b>Merge PR #12</b> · +1 thêm, −1 bỏ<br><span style="color:var(--mu);font-size:13px">Hôm nay 10:30 · <span class="chip o">Chờ khách xác nhận</span></span><br><span class="btn" style="margin-top:8px">Sao chép link /c/x7k2…</span></div></div>
+<div class="row"><span class="chip v">v2</span><div><b>Thêm Đặt bàn (REQ-006)</b><br><span style="color:var(--mu);font-size:13px">Tuần trước · <span class="chip g">Khách đã xác nhận</span></span><br><span class="btn" style="margin-top:8px">Rollback về v2</span></div></div>
+<div class="row"><span class="chip v">v1</span><div><b>Bản đầu tiên (5 yêu cầu)</b><br><span style="color:var(--mu);font-size:13px">2 tuần trước</span></div></div></div></div></div></section>
+
+<section class="frame"><p class="note">Khung 5 · <span class="mono">/c/[token]</span> — trang công khai cho khách, mở trên điện thoại, nút lớn.</p>
+<div class="phone"><div class="logo" style="margin-bottom:12px">free<i>vo</i></div><b style="font-size:18px">Xác nhận thay đổi yêu cầu</b><p style="color:var(--mu);font-size:14px">Chào anh Minh, anh vui lòng xem các thay đổi sau (v2 → v3):</p>
+<div class="card" style="overflow:hidden"><div class="chg add"><span class="g">+</span><b>Thanh toán chuyển khoản</b></div><div class="chg rm"><span class="g">−</span><b>Blog</b></div></div>
+<p class="mono" style="font-size:13px">Chi phí điều chỉnh: <b>−1.000.000đ</b></p>
+<a class="big" style="background:var(--ac);color:#fff">Tôi đồng ý</a><a class="big" style="background:#fff;border:1px solid var(--bd)">Cần chỉnh lại</a></div></section>
+
+</div>
+<script>
+const fs=[...document.querySelectorAll('.frame')],bs=[...document.querySelectorAll('[data-f]')];
+let cur=0;
+function go(i){fs.forEach((f,k)=>f.classList.toggle('on',k==i));bs.forEach((b,k)=>b.classList.toggle('on',k==i));window.scrollTo(0,0);cur=i}
+bs.forEach(b=>b.onclick=()=>go(+b.dataset.f));
+document.getElementById('nx').onclick=()=>go(Math.min(cur+1,fs.length-1));
+</script></body></html>
