@@ -38,6 +38,7 @@ export async function updateClientAction(id: string, formData: FormData) {
   return wrap(async () => {
     const f = parseForm(formData);
     await updateClient(id, f);
+    revalidatePath("/");
     revalidatePath(`/clients/${id}`);
     return { id };
   });
@@ -52,6 +53,7 @@ export async function addManualMessageAction(clientId: string, formData: FormDat
       sender: sender === "client" || sender === "freelancer" ? sender : "unknown",
       text: str(formData, "text"),
     });
+    revalidatePath("/");
     revalidatePath(`/clients/${clientId}`);
     return { id: m.id };
   });

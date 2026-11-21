@@ -53,3 +53,4 @@ export type Pricing = {
   taxRate: number;
   priceForNet: (desiredNet: number) => number;
 };
+export type SerializablePricing = Omit<Pricing, "priceForNet">;

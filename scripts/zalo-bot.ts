@@ -67,7 +67,7 @@ const heldText = new Map<string, string[]>(); // chatId -> texts received with n
 async function attachHeld(chatId: string, clientId: string) {
   const held = heldText.get(chatId) ?? [];
   heldText.delete(chatId);
-  for (const text of held) await addMessage({ clientId, channel: "zalo", sender: "client", text });
+  for (const text of held) await addMessage({ clientId, channel: "zalo", sender: "unknown", text });
   return held.length;
 }
 
@@ -125,7 +125,7 @@ export async function handle(chatId: string, text: string) {
     heldText.set(chatId, [...(heldText.get(chatId) ?? []), t]);
     return send(chatId, "Chưa chọn khách (hoặc đã quá hạn). Dùng /khach <tên> để chọn, tin này sẽ được lưu cho khách đó.");
   }
-  await addMessage({ clientId: active.id, channel: "zalo", sender: "client", text: t });
+  await addMessage({ clientId: active.id, channel: "zalo", sender: "unknown", text: t });
   await setActive(active.id); // refresh TTL
   return send(chatId, `✓ ${active.name} (${await countPending(active.id)} tin chờ)`);
 }

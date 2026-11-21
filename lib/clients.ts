@@ -37,16 +37,36 @@ export function parseEmails(s: string): string[] {
 export async function listClients() {
   const rows = await db.client.findMany({
     orderBy: { createdAt: "asc" },
-    include: { _count: { select: { prs: true } } },
+    include: {
+      _count: { select: { prs: true } },
+      versions: { orderBy: { number: "desc" }, take: 1, select: { number: true, prId: true } },
+      prs: {
+        orderBy: { createdAt: "desc" },
+        select: { id: true, status: true, confirmation: { select: { status: true } } },
+      },
+    },
   });
   const pending = await db.message.groupBy({ by: ["clientId"], where: { prId: null }, _count: true });
   const pm = new Map(pending.map((p) => [p.clientId, p._count]));
-  return rows.map((c) => ({
-    ...c,
-    emails: parseEmails(c.emails),
-    pendingCount: pm.get(c.id) ?? 0,
-    prCount: c._count.prs,
-  }));
+  return rows.map(({ versions, prs, _count, ...c }) => {
+    const latestVersion = versions[0];
+    const openPrs = prs.filter((p) => p.status === "open");
+    const versionPr = latestVersion?.prId
+      ? prs.find((p) => p.id === latestVersion.prId && p.confirmation)
+      : undefined;
+    const latestMergedConf =
+      versionPr?.confirmation ?? prs.find((p) => p.status === "merged" && p.confirmation)?.confirmation ?? null;
+    return {
+      ...c,
+      emails: parseEmails(c.emails),
+      pendingCount: pm.get(c.id) ?? 0,
+      prCount: _count.prs,
+      currentVersionNo: latestVersion?.number ?? 0,
+      openPrCount: openPrs.length,
+      latestOpenPrId: openPrs[0]?.id ?? null,
+      latestConfirmationStatus: latestMergedConf?.status ?? null,
+    };
+  });
 }
 
 export async function getClientDetail(id: string) {
@@ -61,11 +81,25 @@ export async function getClientDetail(id: string) {
   if (!c) throw new Error("Không tìm thấy khách hàng.");
   const pendingCount = await db.message.count({ where: { clientId: id, prId: null } });
   const latest = c.versions[0];
+  const latestPrWithConf =
+    (latest?.prId ? c.prs.find((p) => p.id === latest.prId && p.confirmation) : undefined) ??
+    c.prs.find((p) => p.status === "merged" && p.confirmation);
+  const latestConfirmation = latestPrWithConf?.confirmation
+    ? {
+        prId: latestPrWithConf.id,
+        mergedVersionNo: latestPrWithConf.mergedVersionNo,
+        token: latestPrWithConf.confirmation.token,
+        status: latestPrWithConf.confirmation.status,
+        note: latestPrWithConf.confirmation.note,
+        respondedAt: latestPrWithConf.confirmation.respondedAt,
+      }
+    : null;
   return {
     ...c,
     emails: parseEmails(c.emails),
     pendingCount,
     latestSnapshot: (latest ? JSON.parse(latest.snapshot) : { requirements: [] }) as ReqSnapshot,
+    latestConfirmation,
   };
 }
 
@@ -103,7 +137,9 @@ export async function updateClient(id: string, data: Partial<ClientInput>) {
 }
 
 export async function findOrCreateClientByName(name: string) {
-  if (!name.trim()) throw new Error("Tên khách không được để trống.");
-  const found = await db.client.findFirst({ where: { name: name.trim() } });
-  return found ?? createClient({ name });
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Tên khách không được để trống.");
+  const all = await db.client.findMany({ orderBy: { createdAt: "asc" } });
+  const found = all.find((c) => c.name.trim().toLowerCase() === trimmed.toLowerCase());
+  return found ?? createClient({ name: trimmed });
 }
