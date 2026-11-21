@@ -1,0 +1,233 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Freevo · Nocturne</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ===== TOKENS (port to Tailwind theme.extend) ===== */
+:root{
+  --bg:#06070A; --bg-2:#0B0D12; --surface:rgba(255,255,255,.035); --surface-2:rgba(255,255,255,.06);
+  --hairline:rgba(255,255,255,.08); --hairline-2:rgba(255,255,255,.14);
+  --tx:#EEF1F5; --tx-2:#A4ADBA; --tx-3:#6B7482;
+  --em:#34D399; --cy:#22D3EE;              /* duotone accent emerald -> cyan */
+  --grad:linear-gradient(110deg,#34D399,#22D3EE 50%,#34D399);
+  --add:#34D399; --add-bg:rgba(52,211,153,.09); --add-glow:rgba(52,211,153,.35);
+  --mod:#FBBF24; --mod-bg:rgba(251,191,36,.09); --mod-glow:rgba(251,191,36,.30);
+  --rm:#FB7185;  --rm-bg:rgba(251,113,133,.09); --rm-glow:rgba(251,113,133,.32);
+  --r-sm:10px; --r:16px; --r-lg:22px;
+  --font:'Be Vietnam Pro',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;min-height:100vh;overflow-x:hidden}
+body:before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(900px 500px at 15% -10%,rgba(34,211,238,.10),transparent 60%),radial-gradient(800px 500px at 90% 0%,rgba(52,211,153,.08),transparent 60%)}
+body:after{content:"";position:fixed;inset:-50%;z-index:1;pointer-events:none;opacity:.07;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+.mono{font-family:var(--mono)}
+.mute{color:var(--tx-2)} .dim{color:var(--tx-3)}
+.grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;background-size:200% 100%;animation:flow 6s linear infinite}
+@keyframes flow{to{background-position:200% 0}}
+
+/* stepper bar */
+.bar{position:sticky;top:12px;z-index:20;margin:12px auto 0;max-width:1120px;width:calc(100% - 24px);display:flex;gap:6px;align-items:center;padding:7px 8px 7px 16px;
+  background:rgba(14,16,22,.65);backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px);border:1px solid var(--hairline);border-radius:999px;
+  box-shadow:0 10px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.05);overflow-x:auto;scrollbar-width:none}
+.bar::-webkit-scrollbar{display:none}
+.bar b{font-weight:700;letter-spacing:-.03em;margin-right:10px;white-space:nowrap}
+.bar button{font:500 13px var(--font);color:var(--tx-2);background:transparent;border:0;border-radius:999px;padding:8px 14px;cursor:pointer;white-space:nowrap;transition:all .25s var(--ease)}
+.bar button:hover{color:var(--tx);background:var(--surface-2)}
+.bar button.on{color:#04110C;background:var(--grad);background-size:200% 100%;font-weight:600;box-shadow:0 0 20px rgba(52,211,153,.35)}
+.bar .next{margin-left:auto;color:var(--tx);border:1px solid var(--hairline-2);background:var(--surface)}
+.bar .next:hover{border-color:var(--em);box-shadow:0 0 18px rgba(52,211,153,.25)}
+
+.stage{position:relative;z-index:2;max-width:1120px;margin:28px auto 80px;padding:0 12px}
+.frame{display:none}.frame.on{display:block;animation:rise .5s var(--ease)}
+@keyframes rise{from{opacity:0;transform:translateY(14px) scale(.99)}to{opacity:1;transform:none}}
+.note{font-size:12.5px;color:var(--tx-3);margin:0 4px 14px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.note .mono{color:var(--cy);background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.2);padding:1px 8px;border-radius:6px}
+
+/* app shell + glass */
+.app{position:relative;border-radius:var(--r-lg);border:1px solid var(--hairline);background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));
+  box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.06);overflow:hidden;min-height:560px}
+.spot:before{content:"";position:absolute;left:50%;top:-120px;width:900px;height:520px;transform:translateX(-50%);pointer-events:none;
+  background:radial-gradient(closest-side,rgba(52,211,153,.20),rgba(34,211,238,.08) 55%,transparent);filter:blur(10px)}
+.top{position:relative;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 22px;border-bottom:1px solid var(--hairline);background:rgba(255,255,255,.015)}
+.logo{font-weight:800;font-size:19px;letter-spacing:-.05em}.logo i{font-style:normal;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.pad{position:relative;padding:24px}
+.glass{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),inset 0 0 40px rgba(255,255,255,.012),0 8px 30px rgba(0,0,0,.25);backdrop-filter:blur(10px)}
+h1,h2{margin:0;letter-spacing:-.04em;line-height:1.05}
+h1{font-size:clamp(28px,4vw,44px);font-weight:800}
+h2{font-size:22px;font-weight:700}
+.eyebrow{font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--tx-3)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:8px;font:500 14px var(--font);color:var(--tx);background:var(--surface-2);border:1px solid var(--hairline-2);border-radius:12px;padding:9px 16px;cursor:pointer;transition:all .25s var(--ease);min-height:40px}
+.btn:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.28);background:rgba(255,255,255,.09)}
+.btn.d{color:var(--rm)}.btn.d:hover{border-color:var(--rm);box-shadow:0 0 18px var(--rm-glow)}
+.btn.p{position:relative;color:#03110B;font-weight:700;border:0;background:var(--grad);background-size:250% 100%;animation:flow 4s linear infinite;box-shadow:0 0 0 1px rgba(255,255,255,.25) inset,0 8px 28px rgba(52,211,153,.35)}
+.btn.p:hover{box-shadow:0 0 0 1px rgba(255,255,255,.4) inset,0 10px 40px rgba(34,211,238,.55);transform:translateY(-2px)}
+.btn:focus-visible,.bar button:focus-visible,.chg:focus-visible,.tg:focus-visible{outline:2px solid var(--cy);outline-offset:2px}
+
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--hairline);color:var(--tx-2)}
+.chip.v{font-family:var(--mono);font-weight:700;color:var(--cy);background:rgba(34,211,238,.08);border-color:rgba(34,211,238,.28)}
+.chip.o{color:var(--mod);background:var(--mod-bg);border-color:rgba(251,191,36,.28)}
+.chip.g{color:var(--add);background:var(--add-bg);border-color:rgba(52,211,153,.28)}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+
+/* table */
+table{width:100%;border-collapse:collapse}
+th{font:600 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--tx-3);text-align:left;padding:14px 20px;border-bottom:1px solid var(--hairline)}
+td{padding:18px 20px;border-bottom:1px solid var(--hairline);font-size:14px}
+tr:last-child td{border-bottom:0}
+tbody tr{transition:background .25s}tbody tr:hover{background:rgba(255,255,255,.035)}
+.av{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;margin-right:12px;font-weight:700;background:linear-gradient(135deg,rgba(52,211,153,.25),rgba(34,211,238,.15));border:1px solid var(--hairline-2);vertical-align:middle}
+.price-m{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.tablewrap{overflow-x:auto}
+
+.tabs{display:flex;gap:4px;margin-bottom:20px;overflow-x:auto;border-bottom:1px solid var(--hairline)}
+.tabs span{padding:10px 16px;font-size:14px;color:var(--tx-3);position:relative;white-space:nowrap;transition:color .2s;cursor:default}
+.tabs span:hover{color:var(--tx)}
+.tabs .a{color:var(--tx);font-weight:600}.tabs .a:after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:2px;background:var(--grad);box-shadow:0 0 12px var(--em);border-radius:2px}
+.grid2{display:grid;grid-template-columns:1.1fr 1fr;gap:18px}
+@media(max-width:820px){.grid2{grid-template-columns:1fr}.pad{padding:16px}}
+
+/* bubbles */
+.bub{max-width:88%;padding:10px 14px;border-radius:18px 18px 18px 6px;margin:10px 0;font-size:14px;background:var(--surface);border:1px solid var(--hairline);transition:all .35s var(--ease)}
+.bub.me{margin-left:auto;border-radius:18px 18px 6px 18px;background:rgba(34,211,238,.08);border-color:rgba(34,211,238,.22)}
+.bub small{display:block;font:500 11px var(--mono);color:var(--tx-3);margin-bottom:3px}
+.bub mark{background:linear-gradient(transparent 60%,rgba(251,191,36,.35) 0);color:inherit;padding:0 2px}
+.ev .bub{opacity:.35;transform:scale(.985)}
+.ev .bub.hl{opacity:1;transform:none;border-color:rgba(52,211,153,.55);background:rgba(52,211,153,.07);box-shadow:0 0 0 1px rgba(52,211,153,.2),0 0 30px rgba(52,211,153,.18)}
+.ev .bub.hl.k-rm{border-color:rgba(251,113,133,.55);background:var(--rm-bg);box-shadow:0 0 30px var(--rm-glow)}
+.ev .bub.hl.k-mod{border-color:rgba(251,191,36,.55);background:var(--mod-bg);box-shadow:0 0 30px var(--mod-glow)}
+
+/* diff lines */
+.chg{display:flex;gap:14px;padding:16px 18px;align-items:flex-start;border-bottom:1px solid var(--hairline);position:relative;cursor:pointer;transition:all .3s var(--ease);--c:var(--add);--cg:var(--add-glow);--cb:var(--add-bg)}
+.chg:last-child{border-bottom:0}
+.chg.mod{--c:var(--mod);--cg:var(--mod-glow);--cb:var(--mod-bg)}.chg.rm{--c:var(--rm);--cg:var(--rm-glow);--cb:var(--rm-bg)}
+.chg:before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:var(--c);box-shadow:0 0 14px var(--cg)}
+.chg:hover{background:var(--cb)}
+.chg.sel{background:linear-gradient(90deg,var(--cb),transparent 85%);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 40%,transparent)}
+.chg .g{flex:none;width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font:700 16px var(--mono);color:var(--c);background:var(--cb);border:1px solid color-mix(in srgb,var(--c) 40%,transparent);text-shadow:0 0 12px var(--c);box-shadow:0 0 16px var(--cg)}
+.chg b{font-weight:600;letter-spacing:-.01em}
+.chg .sub{font-size:13px;color:var(--tx-2);margin-top:2px}
+.chg .h{font:500 12px var(--mono);color:var(--c)}
+.chg.off{opacity:.45}.chg.off b{text-decoration:line-through;text-decoration-color:var(--tx-3)}.chg.off:before{opacity:.3}
+.tg{margin-left:auto;flex:none;width:42px;height:24px;border-radius:99px;background:linear-gradient(90deg,var(--em),var(--cy));position:relative;border:0;padding:0;cursor:pointer;transition:all .3s var(--ease);box-shadow:0 0 16px rgba(52,211,153,.4)}
+.tg:after{content:"";position:absolute;top:3px;left:21px;width:18px;height:18px;background:#fff;border-radius:50%;transition:left .3s var(--ease);box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.tg.off{background:rgba(255,255,255,.12);box-shadow:none}.tg.off:after{left:3px;background:var(--tx-2)}
+
+/* price strip */
+.price{position:relative;display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--hairline);background:rgba(255,255,255,.02)}
+.price div{padding:18px 24px;border-right:1px solid var(--hairline)}.price div:last-child{border-right:0}
+.price small{display:block;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--tx-3);margin-bottom:4px}
+.price b{font:600 22px var(--mono);letter-spacing:-.03em;font-variant-numeric:tabular-nums;transition:color .3s}
+.price b.pop{animation:pop .45s var(--ease)}
+@keyframes pop{0%{transform:translateY(5px);opacity:.3;text-shadow:0 0 0 transparent}60%{text-shadow:0 0 24px rgba(34,211,238,.9)}100%{transform:none;opacity:1}}
+@media(max-width:720px){.price{grid-template-columns:1fr 1fr}.price div:nth-child(2){border-right:0}.price div{border-bottom:1px solid var(--hairline)}}
+
+/* timeline */
+.tl .row{display:flex;gap:18px;padding:14px 0;position:relative}
+.tl .row:before{content:"";position:absolute;left:19px;top:48px;bottom:-8px;width:1px;background:linear-gradient(var(--hairline-2),transparent)}.tl .row:last-child:before{display:none}
+.tl .node{flex:none;width:40px;height:40px;border-radius:13px;display:grid;place-items:center;font:700 13px var(--mono);color:var(--cy);background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.3)}
+.tl .row:first-child .node{box-shadow:0 0 24px rgba(34,211,238,.4);color:#03110B;background:var(--grad);border:0}
+
+/* phone */
+.phone-wrap{display:grid;place-items:center;padding:20px 0 0;position:relative}
+.phone-wrap:before{content:"";position:absolute;width:520px;height:520px;top:40px;background:radial-gradient(closest-side,rgba(52,211,153,.22),rgba(34,211,238,.08) 60%,transparent);filter:blur(10px)}
+.phone{position:relative;width:340px;max-width:100%;min-height:660px;border-radius:46px;padding:12px;background:linear-gradient(160deg,#2a2f3a,#0d0f14);border:1px solid var(--hairline-2);box-shadow:0 40px 90px rgba(0,0,0,.7),0 0 0 1px #000,inset 0 0 0 1px rgba(255,255,255,.06)}
+.screen{position:relative;border-radius:36px;background:var(--bg-2);min-height:636px;padding:48px 18px 24px;overflow:hidden;display:flex;flex-direction:column}
+.screen:before{content:"";position:absolute;top:10px;left:50%;transform:translateX(-50%);width:92px;height:26px;border-radius:99px;background:#000}
+.screen:after{content:"";position:absolute;inset:0;background:radial-gradient(300px 200px at 50% 0,rgba(52,211,153,.12),transparent);pointer-events:none}
+.big{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;border-radius:16px;font:600 16px var(--font);border:0;cursor:pointer;margin-top:10px;transition:all .25s var(--ease)}
+.big.p{color:#03110B;background:var(--grad);background-size:250% 100%;animation:flow 4s linear infinite;box-shadow:0 10px 30px rgba(52,211,153,.35)}
+.big.p:active{transform:scale(.97)}
+.big.s{color:var(--tx);background:var(--surface-2);border:1px solid var(--hairline-2)}
+.big.done{animation:none;background:var(--add-bg);color:var(--add);border:1px solid var(--add)}
+
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body>
+
+<div class="bar"><b>free<span class="grad-text">vo</span></b>
+<button class="on" data-f="0">1 Khách hàng</button><button data-f="1">2 Chi tiết khách</button><button data-f="2">3 Duyệt PR</button><button data-f="3">4 Phiên bản</button><button data-f="4">5 Khách xác nhận</button>
+<button class="next" id="nx">Duyệt khung → tiếp</button></div>
+
+<div class="stage">
+
+<!-- 1 -->
+<section class="frame on"><p class="note">Khung 1 <span class="mono">/</span> danh sách khách, thấy ngay PR nào đang chờ duyệt.</p>
+<div class="app"><div class="top"><span class="logo">free<i>vo</i></span><span class="chip"><span class="dot" style="color:var(--add)"></span>Anh Minh đang là khách hoạt động (Zalo)</span><span style="margin-left:auto" class="btn p">+ Thêm khách</span></div>
+<div class="pad"><div style="margin:8px 4px 26px"><div class="eyebrow">Tổng quan</div><h1>Khách hàng <span class="grad-text">của bạn.</span></h1></div>
+<div class="glass tablewrap"><table><thead><tr><th>Khách</th><th>Phiên bản</th><th>Tin chưa xử lý</th><th>PR</th><th>Hợp đồng</th></tr></thead><tbody>
+<tr><td><span class="av">M</span><b>Anh Minh</b> <span class="dim" style="font-size:13px">· Quán cafe Mộc</span></td><td><span class="chip v">v2</span></td><td>7 tin Zalo</td><td><span class="chip o"><span class="dot"></span>1 đang mở</span></td><td class="price-m">20.000.000đ</td></tr>
+<tr><td><span class="av">L</span><b>Chị Lan</b> <span class="dim" style="font-size:13px">· Shop hoa Lan</span></td><td><span class="chip v">v1</span></td><td class="dim">0</td><td><span class="chip g"><span class="dot"></span>Đã merge</span></td><td class="price-m">12.000.000đ</td></tr>
+<tr><td><span class="av">D</span><b>Demo dự phòng</b> <span class="dim" style="font-size:13px">· Nhập tay</span></td><td><span class="chip v">v1</span></td><td class="dim">0</td><td class="dim">—</td><td class="price-m">8.000.000đ</td></tr></tbody></table></div></div></div></section>
+
+<!-- 2 -->
+<section class="frame"><p class="note">Khung 2 <span class="mono">/clients/[id]</span> tab Hộp thư: tin nhắn Zalo/Gmail và nút tạo PR.</p>
+<div class="app"><div class="top"><span class="logo">free<i>vo</i></span><b>Anh Minh</b><span class="chip v">v2</span></div>
+<div class="pad"><div class="tabs"><span>Thông tin</span><span class="a">Hộp thư (7)</span><span>Yêu cầu hiện tại</span><span>Phiên bản</span><span>PR</span></div>
+<div class="grid2"><div class="glass pad"><div class="bub"><small>Zalo · 09:12</small>Em muốn thêm thanh toán VNPay nha anh</div><div class="bub me"><small>Bạn · 09:15</small>Ok anh, để em báo giá</div><div class="bub"><small>Zalo · 09:40</small>À thôi, VNPay phức tạp, dùng chuyển khoản thôi</div><div class="bub"><small>Gmail · 10:02</small>Bỏ luôn mục Blog nhé, mình chưa cần.</div><div class="bub"><small>Zalo · 10:20</small>Trang chủ làm thêm banner khuyến mãi</div></div>
+<div class="glass pad"><div class="eyebrow">Chưa gom vào PR</div><h2 style="margin:8px 0 6px">7 tin nhắn mới</h2><p class="mute" style="margin:0 0 18px">Từ 09:12. AI sẽ lấy ý chốt cuối cùng của khách.</p><span class="btn p">Tạo PR từ 7 tin nhắn</span>
+<hr style="border:0;border-top:1px solid var(--hairline);margin:24px 0 16px"><div class="eyebrow">Yêu cầu hiện tại · v2</div><p class="mono mute" style="font-size:13px;line-height:2;margin:8px 0 0">REQ-001 Trang chủ<br>REQ-002 Menu sản phẩm<br>REQ-003 Giỏ hàng<br>REQ-004 Blog<br>REQ-006 Đặt bàn</p></div></div></div></div></section>
+
+<!-- 3 showpiece -->
+<section class="frame"><p class="note">Khung 3 <span class="mono">/pr/[id]</span> màn hình quan trọng nhất. Bấm một thay đổi để sáng bằng chứng; gạt toggle để giá tính lại.</p>
+<div class="app spot"><div class="top"><span class="logo">free<i>vo</i></span><span><b>PR #12</b> <span class="dim">·</span> Anh Minh <span class="chip v" style="margin-left:6px">v2 → v3</span></span><span style="margin-left:auto" class="btn d">Từ chối</span><span class="btn p" id="merge">Merge 2/3 thay đổi</span></div>
+<div class="pad"><div style="margin:4px 4px 22px"><div class="eyebrow">Pull request · chờ duyệt</div><h1>3 thay đổi, <span class="grad-text" id="hd">2 được chọn.</span></h1></div>
+<div class="grid2"><div class="glass" style="overflow:hidden" id="chgs">
+<div class="chg add sel on" tabindex="0" data-ev="0" data-h="6"><span class="g">+</span><div><b>Thanh toán chuyển khoản</b><div class="sub">Hiển thị STK và mã QR khi đặt hàng · <span class="h">+6h</span></div></div><button class="tg" aria-label="Bật/tắt"></button></div>
+<div class="chg rm on" tabindex="0" data-ev="1" data-h="-8"><span class="g">−</span><div><b>Blog</b><div class="sub">REQ-004 · khách bỏ hẳn · <span class="h">−8h</span></div></div><button class="tg" aria-label="Bật/tắt"></button></div>
+<div class="chg mod off" tabindex="0" data-ev="2" data-h="3"><span class="g">~</span><div><b>Banner khuyến mãi trang chủ</b><div class="sub">REQ-001 · <span class="h">+3h</span></div></div><button class="tg off" aria-label="Bật/tắt"></button></div></div>
+<div class="glass pad"><div class="eyebrow" style="margin-bottom:6px">Bằng chứng</div><div class="ev" id="ev">
+<div class="bub" data-ev="0"><small>Zalo · 09:12</small>Em muốn thêm thanh toán VNPay nha anh</div>
+<div class="bub" data-ev="0" data-main><small>Zalo · 09:40 · ý chốt</small><mark>VNPay phức tạp, dùng chuyển khoản thôi</mark></div>
+<div class="bub" data-ev="1" data-k="rm"><small>Gmail · 10:02 · ý chốt</small><mark>Bỏ luôn mục Blog nhé, mình chưa cần.</mark></div>
+<div class="bub" data-ev="2" data-k="mod"><small>Zalo · 10:20 · ý chốt</small><mark>Trang chủ làm thêm banner khuyến mãi</mark></div></div></div></div></div>
+<div class="price"><div><small>Hợp đồng</small><b>20.000.000đ</b></div><div><small>Công</small><b id="pH">40h → 38h</b></div><div><small>Giá gợi ý</small><b id="pS" class="grad-text">19.000.000đ</b></div><div><small>Thực nhận (thuế 10%)</small><b id="pN">17.100.000đ</b></div></div></div></section>
+
+<!-- 4 -->
+<section class="frame"><p class="note">Khung 4 tab Phiên bản: lịch sử kiểu git, có Rollback và nút gửi link xác nhận.</p>
+<div class="app"><div class="top"><span class="logo">free<i>vo</i></span><b>Anh Minh</b><span class="chip v">v3</span></div>
+<div class="pad"><div class="tabs"><span>Thông tin</span><span>Hộp thư</span><span>Yêu cầu hiện tại</span><span class="a">Phiên bản</span><span>PR</span></div>
+<div class="glass pad tl">
+<div class="row"><span class="node">v3</span><div><b>Merge PR #12</b> <span class="mono mute" style="font-size:13px">· <span style="color:var(--add)">+1 thêm</span>, <span style="color:var(--rm)">−1 bỏ</span></span><div class="dim" style="font-size:13px;margin:4px 0 10px">Hôm nay 10:30 · <span class="chip o"><span class="dot"></span>Chờ khách xác nhận</span></div><span class="btn mono" style="font-size:13px">Sao chép link /c/x7k2…</span></div></div>
+<div class="row"><span class="node">v2</span><div><b>Thêm Đặt bàn (REQ-006)</b><div class="dim" style="font-size:13px;margin:4px 0 10px">Tuần trước · <span class="chip g"><span class="dot"></span>Khách đã xác nhận</span></div><span class="btn">Rollback về v2</span></div></div>
+<div class="row"><span class="node">v1</span><div><b>Bản đầu tiên (5 yêu cầu)</b><div class="dim" style="font-size:13px">2 tuần trước</div></div></div></div></div></div></section>
+
+<!-- 5 -->
+<section class="frame"><p class="note">Khung 5 <span class="mono">/c/[token]</span> trang công khai cho khách, mở trên điện thoại, nút lớn.</p>
+<div class="phone-wrap"><div class="phone"><div class="screen">
+<div class="logo" style="margin-bottom:18px;position:relative;z-index:1">free<i>vo</i></div>
+<h2 style="font-size:26px;font-weight:800;position:relative;z-index:1">Xác nhận <span class="grad-text">thay đổi</span> yêu cầu</h2>
+<p class="mute" style="font-size:14px;position:relative;z-index:1">Chào anh Minh, anh vui lòng xem các thay đổi sau <span class="mono" style="color:var(--cy)">(v2 → v3)</span>:</p>
+<div class="glass" style="overflow:hidden;position:relative;z-index:1"><div class="chg add"><span class="g">+</span><b>Thanh toán chuyển khoản</b></div><div class="chg rm"><span class="g">−</span><b>Blog</b></div></div>
+<p class="mono mute" style="font-size:13px;position:relative;z-index:1;margin:16px 0 8px">Chi phí điều chỉnh <b style="color:var(--add);font-size:17px;margin-left:6px">−1.000.000đ</b></p>
+<div style="margin-top:auto;position:relative;z-index:1"><button class="big p" id="ok">Tôi đồng ý</button><button class="big s">Cần chỉnh lại</button></div>
+</div></div></div></section>
+
+</div>
+<script>
+const fs=[...document.querySelectorAll('.frame')],bs=[...document.querySelectorAll('[data-f]')];let cur=0;
+function go(i){fs.forEach((f,k)=>f.classList.toggle('on',k==i));bs.forEach((b,k)=>b.classList.toggle('on',k==i));window.scrollTo({top:0});cur=i}
+bs.forEach(b=>b.onclick=()=>go(+b.dataset.f));
+document.getElementById('nx').onclick=()=>go(Math.min(cur+1,fs.length-1));
+
+// frame 3
+const rows=[...document.querySelectorAll('#chgs .chg')],bubs=[...document.querySelectorAll('#ev .bub')];
+const fmt=n=>n.toLocaleString('vi-VN')+'đ',RATE=500000,CONTRACT=20000000,BASE=40;
+function select(i){rows.forEach(r=>r.classList.toggle('sel',+r.dataset.ev===i));
+  bubs.forEach(b=>{const on=+b.dataset.ev===i;b.classList.toggle('hl',on);b.classList.toggle('k-rm',on&&b.dataset.k==='rm');b.classList.toggle('k-mod',on&&b.dataset.k==='mod')})}
+function set(el,t){if(el.textContent!==t){el.textContent=t;el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop')}}
+function recompute(){let h=BASE,n=0;rows.forEach(r=>{if(r.classList.contains('on')){h+=+r.dataset.h;n++}});
+  const s=h*RATE;set(document.getElementById('pH'),BASE+'h → '+h+'h');set(document.getElementById('pS'),fmt(s));set(document.getElementById('pN'),fmt(Math.round(s*.9)));
+  document.getElementById('merge').textContent='Merge '+n+'/3 thay đổi';document.getElementById('hd').textContent=n+' được chọn.'}
+rows.forEach(r=>{const tg=r.querySelector('.tg');
+  r.addEventListener('click',()=>select(+r.dataset.ev));
+  r.addEventListener('keydown',e=>{if(e.key==='Enter'){select(+r.dataset.ev)}});
+  tg.addEventListener('click',e=>{e.stopPropagation();const on=!r.classList.contains('on');r.classList.toggle('on',on);r.classList.toggle('off',!on);tg.classList.toggle('off',!on);select(+r.dataset.ev);recompute()})});
+select(0);recompute();
+document.getElementById('ok').onclick=function(){this.classList.remove('p');this.classList.add('done');this.textContent='✓ Đã xác nhận'};
+</script></body></html>
