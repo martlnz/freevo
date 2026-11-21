@@ -6,3 +6,50 @@ export type Change = {
   effortHours: number; evidence: string[]; accepted: boolean;
 };
 export type Result<T> = { ok: true; data: T } | { ok: false; error: string };
+
+// ---- Backend domain types (HACKATHON_PLAN section 5) ----
+export type Req = {
+  id: string; // "REQ-001", fixed
+  title: string;
+  detail: string;
+  status: "agreed" | "pending";
+};
+export type ReqSnapshot = { requirements: Req[] };
+export type PRChange = {
+  op: "add" | "modify" | "remove";
+  reqId?: string;
+  title?: string;
+  detail?: string;
+  status?: "agreed" | "pending";
+  before?: string;
+  reason: string;
+  evidence: string[]; // real Message.id
+  accepted: boolean;
+  selectedEvidence: string[];
+};
+export type Role = "client" | "freelancer";
+export type LlmProposal = {
+  summary: string;
+  effort_delta: number;
+  message_roles: { ref: string; role: Role }[];
+  changes: {
+    op: "add" | "modify" | "remove";
+    req_id?: string;
+    title?: string;
+    detail?: string;
+    status?: "agreed" | "pending";
+    reason: string;
+    evidence_refs: string[];
+  }[];
+};
+export type Pricing = {
+  contractPrice: number;
+  unitPrice: number;
+  currentEffort: number;
+  proposedEffort: number;
+  suggestedPrice: number;
+  netCurrent: number;
+  netSuggested: number;
+  taxRate: number;
+  priceForNet: (desiredNet: number) => number;
+};

@@ -15,6 +15,9 @@ model Client {
   emails    String   @default("[]")
   zaloId    String?  @unique
   note      String?
+  projectName   String?
+  contractPrice Int @default(0)
+  baseEffort    Int @default(0)
   createdAt DateTime @default(now())
   messages  Message[]
   prs       PullRequest[]
@@ -26,7 +29,7 @@ model Message {
   clientId  String
   client    Client   @relation(fields: [clientId], references: [id])
   channel   String   // zalo | gmail | manual
-  sender    String   // client | freelancer
+  sender    String   // client | freelancer | unknown
   text      String
   sentAt    DateTime @default(now())
   prId      String?
@@ -36,7 +39,11 @@ model PullRequest {
   clientId  String
   client    Client   @relation(fields: [clientId], references: [id])
   status    String   @default("open") // open | merged | rejected
-  changes   String   // JSON Change[]
+  changes   String   // JSON PRChange[]
+  summary   String   @default("")
+  effortDelta Int    @default(0)
+  baseVersionNo   Int?
+  mergedVersionNo Int?
   createdAt DateTime @default(now())
   mergedAt  DateTime?
   confirmation Confirmation?
@@ -48,6 +55,7 @@ model Version {
   number    Int
   snapshot  String   // JSON Requirement[]
   prId      String?
+  note      String?
   createdAt DateTime @default(now())
   @@unique([clientId, number])
 }
