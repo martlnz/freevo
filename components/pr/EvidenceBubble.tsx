@@ -66,6 +66,25 @@ export function EvidenceBubble({
             </span>
             <span className="tabular text-muted">{timeFmt.format(new Date(message.sentAt))}</span>
           </span>
+          {message.sourceImage ? (
+            <span className="mt-1 flex items-center gap-2 text-xs text-muted">
+              <span>Từ ảnh chụp</span>
+              <a
+                href={message.sourceImage}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="shrink-0"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={message.sourceImage}
+                  alt="Ảnh chụp màn hình gốc"
+                  className="h-10 w-10 rounded border border-hairline object-cover"
+                />
+              </a>
+            </span>
+          ) : null}
           <span className="mt-1 block whitespace-pre-wrap break-words text-sm text-ink">{message.text}</span>
         </span>
       </label>

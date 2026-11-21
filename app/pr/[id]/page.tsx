@@ -52,6 +52,7 @@ export default async function PRPage({ params }: { params: Promise<{ id: string 
             sender: m.sender,
             text: m.text,
             sentAt: m.sentAt.toISOString(),
+            sourceImage: m.sourceImage ?? null,
           })),
         }}
       />
