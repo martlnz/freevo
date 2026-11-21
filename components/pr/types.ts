@@ -8,6 +8,7 @@ export type SerializedMessage = {
   sender: string;
   text: string;
   sentAt: string;
+  sourceImage: string | null;
 };
 
 export type SerializedConfirmation = {

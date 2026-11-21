@@ -169,7 +169,11 @@ export function PRReviewClient({
         {pr.summary ? <p className="mt-2 max-w-3xl text-base text-ink">{pr.summary}</p> : null}
         <div className="tabular mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
           <span>
-            Phiên bản v{baseNo} → v{targetNo}
+            {baseNo === 0
+              ? status === "merged"
+                ? "Đã tạo v1"
+                : "Khởi tạo phiên bản v1"
+              : `Phiên bản v${baseNo} → v${targetNo}`}
           </span>
           <span>
             <span className="text-add">+{counts.add} thêm</span> · <span className="text-modify">~{counts.modify} sửa</span> ·{" "}
@@ -302,7 +306,7 @@ export function PRReviewClient({
             <div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-hairline bg-surface p-4">
               <Button onClick={() => void handleMerge()} disabled={merging || pendingIdx.length > 0}>
                 <GitMerge aria-hidden />
-                {merging ? "Đang merge..." : `Merge thành v${baseNo + 1}`}
+                {merging ? "Đang merge..." : baseNo === 0 ? "Merge tạo v1" : `Merge thành v${baseNo + 1}`}
               </Button>
               <Button variant="outline" onClick={() => setRejectOpen(true)} disabled={merging}>
                 Từ chối PR
