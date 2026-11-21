@@ -1,7 +1,10 @@
 /* Zalo bot worker: long-polls getUpdates and stores forwarded client messages.
  * Run: npm run zalo-bot */
 import { appendFileSync } from "node:fs";
-import { PrismaClient } from "@prisma/client";
+import { db as prisma } from "../lib/db";
+import { listClients, findOrCreateClientByName } from "../lib/clients";
+import { addMessage, listPendingMessages } from "../lib/messages";
+import { createPR } from "../lib/pr";
 
 try { process.loadEnvFile(".env"); } catch {}
 
@@ -10,26 +13,13 @@ const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 const TTL_MS = Number(process.env.ACTIVE_CLIENT_TTL_HOURS ?? 2) * 3600_000;
 const API = `https://bot-api.zaloplatforms.com/bot${TOKEN}`;
 const STATE_ID = "zalo";
-const prisma = new PrismaClient();
+const DRY = process.env.ZALO_DRY === "1"; // tests: print replies instead of calling sendMessage
 
-// ---------------------------------------------------------------------------
-// Local adapter over prisma. TODO: after lib/ is merged, switch to
-// lib/clients.ts (listClients, findOrCreateClientByName) and lib/messages.ts (addMessage).
-// ---------------------------------------------------------------------------
-async function listClients() {
-  return prisma.client.findMany({ orderBy: { createdAt: "asc" } });
-}
-async function findOrCreateClientByName(name: string) {
-  const all = await prisma.client.findMany();
-  const hit = all.find((c) => c.name.toLowerCase() === name.toLowerCase());
+const countPending = async (clientId: string) => (await listPendingMessages(clientId)).length;
+async function findOrCreate(name: string) {
+  const hit = (await listClients()).find((c) => c.name.toLowerCase() === name.toLowerCase());
   if (hit) return { client: hit, created: false };
-  return { client: await prisma.client.create({ data: { name } }), created: true };
-}
-async function addMessage(d: { clientId: string; channel: string; sender: string; text: string }) {
-  return prisma.message.create({ data: d });
-}
-async function countPending(clientId: string) {
-  return prisma.message.count({ where: { clientId, prId: null, sender: "client" } });
+  return { client: await findOrCreateClientByName(name), created: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -47,6 +37,7 @@ async function call<T>(method: string, body: object = {}): Promise<ApiResp<T>> {
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const send = async (chat_id: string, text: string) => {
+  if (DRY) { console.log("BOT>", text); return; }
   const r = await call("sendMessage", { chat_id, text: text.slice(0, 2000) });
   if (!r.ok) console.error("sendMessage failed:", r.error_code, r.description);
 };
@@ -71,8 +62,16 @@ const HELP = [
 ].join("\n");
 
 let awaitingPick: string[] | null = null; // client ids offered by the last /khach
+const heldText = new Map<string, string[]>(); // chatId -> texts received with no active client
 
-async function handle(chatId: string, text: string) {
+async function attachHeld(chatId: string, clientId: string) {
+  const held = heldText.get(chatId) ?? [];
+  heldText.delete(chatId);
+  for (const text of held) await addMessage({ clientId, channel: "zalo", sender: "client", text });
+  return held.length;
+}
+
+export async function handle(chatId: string, text: string) {
   const t = text.trim();
   if (t === "/help" || t === "/start") return send(chatId, HELP);
 
@@ -85,10 +84,11 @@ async function handle(chatId: string, text: string) {
   if (t.startsWith("/khach ")) {
     const name = t.slice(7).trim();
     if (!name) return send(chatId, "Thiếu tên khách.");
-    const { client, created } = await findOrCreateClientByName(name);
+    const { client, created } = await findOrCreate(name);
     await setActive(client.id);
     awaitingPick = null;
-    return send(chatId, `Đang làm việc với: ${client.name}` + (created ? "\nĐã tạo khách mới" : ""));
+    const n = await attachHeld(chatId, client.id);
+    return send(chatId, `Đang làm việc với: ${client.name}` + (created ? "\nĐã tạo khách mới" : "") + (n ? `\n✓ Đã lưu ${n} tin trước đó` : ""));
   }
   if (awaitingPick && /^\d+$/.test(t)) {
     const id = awaitingPick[Number(t) - 1];
@@ -97,7 +97,8 @@ async function handle(chatId: string, text: string) {
       if (c) {
         await setActive(id);
         awaitingPick = null;
-        return send(chatId, `Đang làm việc với: ${c.name}`);
+        const n = await attachHeld(chatId, id);
+        return send(chatId, `Đang làm việc với: ${c.name}` + (n ? `\n✓ Đã lưu ${n} tin trước đó` : ""));
       }
     }
     return send(chatId, "Số không hợp lệ, gõ /khach để xem lại danh sách.");
@@ -109,22 +110,21 @@ async function handle(chatId: string, text: string) {
 
   if (t === "/xong") {
     if (!active) return send(chatId, "Chưa chọn khách. Dùng /khach <tên> để chọn.");
-    const n = await countPending(active.id);
-    if (!n) return send(chatId, `Không có tin mới cho ${active.name}.`);
+    if (!(await countPending(active.id))) return send(chatId, `Không có tin mới cho ${active.name}.`);
     try {
-      // lib/pr.ts may not be merged yet; load it dynamically when present.
-      const modPath = "../lib/pr";
-      const mod = await import(modPath);
-      const pr = await mod.createPR(active.id);
-      const count = pr.changes ? JSON.parse(pr.changes).length : "?";
-      return send(chatId, `Đã tạo PR cho ${active.name} (${count} thay đổi): ${APP_URL}/pr/${pr.id}`);
+      const pr = await createPR(active.id);
+      const sum = pr.summary ? `${pr.summary}\n` : "";
+      return send(chatId, `Đã tạo PR cho ${active.name}: ${pr.changes.length} thay đổi.\n${sum}${APP_URL}/pr/${pr.id}`);
     } catch (e) {
       console.error("createPR failed:", (e as Error).message);
       return send(chatId, "Có lỗi khi tổng hợp, thử lại /xong");
     }
   }
 
-  if (!active) return send(chatId, "Chưa chọn khách (hoặc đã quá hạn). Dùng /khach <tên> để chọn rồi gửi lại tin.");
+  if (!active) {
+    heldText.set(chatId, [...(heldText.get(chatId) ?? []), t]);
+    return send(chatId, "Chưa chọn khách (hoặc đã quá hạn). Dùng /khach <tên> để chọn, tin này sẽ được lưu cho khách đó.");
+  }
   await addMessage({ clientId: active.id, channel: "zalo", sender: "client", text: t });
   await setActive(active.id); // refresh TTL
   return send(chatId, `✓ ${active.name} (${await countPending(active.id)} tin chờ)`);
@@ -172,4 +172,4 @@ async function main() {
     }
   }
 }
-main();
+if (process.argv[1]?.endsWith("zalo-bot.ts")) main();
