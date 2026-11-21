@@ -10,7 +10,9 @@ export type MessageView = {
   sentAt: string;
   prId: string | null;
   sourceImage: string | null;
-}; = {
+};
+
+export type VersionView = {
   id: string;
   number: number;
   note: string | null;
