@@ -7,8 +7,7 @@ export type ClientFormDefaults = {
   emails?: string;
   phone?: string | null;
   zaloId?: string | null;
-  contractPrice?: number;
-  baseEffort?: number;
+  budget?: number | null;
   note?: string | null;
 };
 
@@ -65,40 +64,31 @@ export function ClientFormFields({
           placeholder="a@example.com, b@example.com"
         />
       </Field>
+      <Field label="Số điện thoại" htmlFor={id("phone")}>
+        <Input id={id("phone")} name="phone" defaultValue={defaults.phone ?? ""} />
+      </Field>
+      <Field label="Zalo ID" htmlFor={id("zaloId")}>
+        <Input id={id("zaloId")} name="zaloId" defaultValue={defaults.zaloId ?? ""} />
+      </Field>
       {extended ? (
-        <>
-          <Field label="Số điện thoại" htmlFor={id("phone")}>
-            <Input id={id("phone")} name="phone" defaultValue={defaults.phone ?? ""} />
-          </Field>
-          <Field label="Zalo ID" htmlFor={id("zaloId")}>
-            <Input id={id("zaloId")} name="zaloId" defaultValue={defaults.zaloId ?? ""} />
-          </Field>
-        </>
+        <Field
+          label="Ngân sách khách (VND)"
+          htmlFor={id("budget")}
+          hint="Tự động cập nhật khi tin nhắn nhắc tới ngân sách"
+        >
+          <Input
+            id={id("budget")}
+            name="budget"
+            type="number"
+            min={0}
+            step={1}
+            inputMode="numeric"
+            defaultValue={defaults.budget ?? ""}
+            placeholder="Chưa nêu"
+            className="tabular"
+          />
+        </Field>
       ) : null}
-      <Field label="Giá hợp đồng (VND)" htmlFor={id("contractPrice")}>
-        <Input
-          id={id("contractPrice")}
-          name="contractPrice"
-          type="number"
-          min={0}
-          step={1}
-          inputMode="numeric"
-          defaultValue={defaults.contractPrice ?? 0}
-          className="tabular"
-        />
-      </Field>
-      <Field label="Điểm khối lượng ban đầu" htmlFor={id("baseEffort")}>
-        <Input
-          id={id("baseEffort")}
-          name="baseEffort"
-          type="number"
-          min={0}
-          step={1}
-          inputMode="numeric"
-          defaultValue={defaults.baseEffort ?? 0}
-          className="tabular"
-        />
-      </Field>
       <div className="sm:col-span-2">
         <Field label="Ghi chú" htmlFor={id("note")}>
           <Textarea id={id("note")} name="note" rows={3} defaultValue={defaults.note ?? ""} />

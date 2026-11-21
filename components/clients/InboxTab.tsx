@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { addManualMessageAction } from "@/app/actions/clients";
 import { CreatePRButton } from "./CreatePRButton";
 import { ErrorBanner } from "./ErrorBanner";
+import { ScreenshotUploader } from "./ScreenshotUploader";
 import { badgeBase, channelLabel, formatDateTime, senderLabel, type MessageView } from "./shared";
 
 function senderClass(sender: string): string {
@@ -119,12 +120,29 @@ export function InboxTab({
                   <span className="ml-auto text-xs text-muted tabular">{formatDateTime(m.sentAt)}</span>
                 </div>
                 <p className="whitespace-pre-wrap break-words text-sm text-ink">{m.text}</p>
+                {m.sourceImage ? (
+                  <a
+                    href={m.sourceImage}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block"
+                    title="Mở ảnh gốc ở tab mới"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={m.sourceImage}
+                      alt="Ảnh chụp màn hình gốc"
+                      className="h-16 w-auto max-w-[160px] rounded-md border border-hairline object-cover"
+                    />
+                  </a>
+                ) : null}
               </li>
             );
           })}
         </ul>
       )}
 
+      <ScreenshotUploader clientId={clientId} />
       <ManualMessageForm clientId={clientId} />
     </div>
   );
