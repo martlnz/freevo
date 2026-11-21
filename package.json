@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev --turbopack -H 0.0.0.0",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "db:reset": "prisma db push --force-reset --skip-generate && prisma generate && tsx --env-file=.env prisma/seed.ts",
+    "db:reset": "tsx --env-file=.env scripts/db-reset.ts",
     "test:pr": "tsx --env-file=.env scripts/test-create-pr.ts",
+    "test:flow": "tsx --env-file=.env scripts/test-flow.ts",
     "zalo-bot": "tsx scripts/zalo-bot.ts",
     "zalo-probe": "tsx scripts/zalo-probe.ts"
   },
