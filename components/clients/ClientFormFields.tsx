@@ -67,8 +67,17 @@ export function ClientFormFields({
       <Field label="Số điện thoại" htmlFor={id("phone")}>
         <Input id={id("phone")} name="phone" defaultValue={defaults.phone ?? ""} />
       </Field>
-      <Field label="Zalo ID" htmlFor={id("zaloId")}>
-        <Input id={id("zaloId")} name="zaloId" defaultValue={defaults.zaloId ?? ""} />
+      <Field
+        label="Tên nick Zalo (nếu khác tên khách)"
+        htmlFor={id("zaloId")}
+        hint="Giúp AI tự khớp khi bạn gửi ảnh chụp màn hình chat Zalo."
+      >
+        <Input
+          id={id("zaloId")}
+          name="zaloId"
+          defaultValue={defaults.zaloId ?? ""}
+          placeholder="VD: Minh Mộc Coffee"
+        />
       </Field>
       {extended ? (
         <Field

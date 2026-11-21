@@ -38,9 +38,16 @@ export async function findMatchingClientByContact(opts: {
     const byPhone = clients.find((c) => c.phone && normDigits(c.phone) === cDigits);
     if (byPhone) return byPhone;
   }
-  if (cNorm) {
-    const byZalo = clients.find((c) => c.zaloId && normStr(c.zaloId) === cNorm);
-    if (byZalo) return byZalo;
+  for (const probe of [nNorm, cNorm]) {
+    if (!probe) continue;
+    const byZaloExact = clients.find((c) => c.zaloId && normStr(c.zaloId) === probe);
+    if (byZaloExact) return byZaloExact;
+    const byZaloPartial = clients.find((c) => {
+      if (!c.zaloId) return false;
+      const zn = normStr(c.zaloId);
+      return zn.length >= 3 && (probe.includes(zn) || (probe.length >= 4 && zn.includes(probe)));
+    });
+    if (byZaloPartial) return byZaloPartial;
   }
 
   for (const probe of [nNorm, cNorm]) {
