@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "./db";
 import { isMock } from "./llm";
 import { addMessage } from "./messages";
-import type { ReqSnapshot } from "./types";
+import type { ReqSnapshot, ScreenshotExtraction } from "./types";
 import { extractFromScreenshot, saveUploadedImage } from "./vision";
 
 const normStr = (s: string) => s.toLowerCase().normalize("NFC").replace(/\s+/g, " ").trim();
@@ -210,6 +210,45 @@ export async function suggestClientForText(
     : null;
 }
 
+type TurnSender = "client" | "freelancer" | "unknown";
+
+export function formatScreenshotTranscript(messages: ScreenshotExtraction["messages"]): {
+  text: string;
+  sender: TurnSender;
+} {
+  const groups: Array<{ sender: TurnSender; lines: string[] }> = [];
+  for (const m of messages) {
+    const line = m.text.trim();
+    if (!line) continue;
+    const prev = groups[groups.length - 1];
+    if (prev && prev.sender === m.sender) {
+      prev.lines.push(line);
+    } else {
+      groups.push({ sender: m.sender, lines: [line] });
+    }
+  }
+
+  const allFreelancer = groups.length > 0 && groups.every((g) => g.sender === "freelancer");
+  const hasClient = groups.some((g) => g.sender === "client");
+  const sender: TurnSender = allFreelancer ? "freelancer" : hasClient ? "client" : "unknown";
+
+  if (groups.length <= 1) {
+    return {
+      text: (groups[0]?.lines ?? []).join("\n"),
+      sender,
+    };
+  }
+
+  const text = groups
+    .map((g) => {
+      const prefix = g.sender === "client" ? "Khách: " : g.sender === "freelancer" ? "Bạn: " : "";
+      return `${prefix}${g.lines.join("\n")}`;
+    })
+    .join("\n");
+
+  return { text, sender };
+}
+
 export async function ingestScreenshot(opts: {
   buffer: Buffer;
   mimeType: string;
@@ -239,25 +278,22 @@ export async function ingestScreenshot(opts: {
   }
 
   const allText = ext.messages.map((m) => m.text).join("\n");
+  const { text: combinedText, sender: combinedSender } = formatScreenshotTranscript(ext.messages);
   const suggestion = targetClient ? null : await suggestClientForText(allText, ext.detectedContactName);
   const contact = ext.detectedContactInfo ?? ext.detectedContactName ?? null;
   const channel = opts.channelOverride ?? ext.channel;
-  const baseTime = Date.now();
 
-  for (let i = 0; i < ext.messages.length; i++) {
-    const m = ext.messages[i];
-    await addMessage({
-      clientId: targetClient?.id ?? null,
-      channel,
-      sender: m.sender,
-      text: m.text,
-      contact,
-      sourceImage,
-      suggestedClientId: suggestion?.clientId ?? null,
-      suggestedReason: suggestion?.reason ?? null,
-      sentAt: new Date(baseTime + i * 1000),
-    });
-  }
+  await addMessage({
+    clientId: targetClient?.id ?? null,
+    channel,
+    sender: combinedSender,
+    text: combinedText,
+    contact,
+    sourceImage,
+    suggestedClientId: suggestion?.clientId ?? null,
+    suggestedReason: suggestion?.reason ?? null,
+    sentAt: new Date(),
+  });
 
   if (targetClient && ext.detectedBudget && ext.detectedBudget > 0) {
     await db.client.update({
@@ -274,7 +310,8 @@ export async function ingestScreenshot(opts: {
     suggestedClientName: suggestion?.clientName ?? null,
     suggestedReason: suggestion?.reason ?? null,
     sourceImage,
-    extractedCount: ext.messages.length,
+    extractedCount: 1,
+    lineCount: ext.messages.length,
     detectedContactName: ext.detectedContactName,
     detectedContactInfo: ext.detectedContactInfo,
     detectedBudget: ext.detectedBudget,

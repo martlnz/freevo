@@ -56,7 +56,7 @@ export function ScreenshotUploader({ clientId }: { clientId: string }) {
           typeof json.data.detectedBudget === "number" && json.data.detectedBudget > 0
             ? ` · Ngân sách khách nhắc tới: ${new Intl.NumberFormat("vi-VN").format(json.data.detectedBudget)} ₫`
             : "";
-        setResult(`Đã tách ${json.data.extractedCount} tin nhắn từ ảnh vào hộp tin${budget}`);
+        setResult(`Đã đọc ảnh và lưu vào hộp tin${budget}`);
         router.refresh();
       } catch {
         setError("Không thể tải ảnh lên. Vui lòng thử lại.");
@@ -129,7 +129,7 @@ export function ScreenshotUploader({ clientId }: { clientId: string }) {
             AI đang đọc ảnh chụp màn hình...
           </span>
         ) : (
-          <span>Kéo thả, chọn tệp hoặc dán (Ctrl+V) ảnh chụp màn hình hội thoại để AI tách tin nhắn</span>
+          <span>Kéo thả, chọn tệp hoặc dán (Ctrl+V) ảnh chụp màn hình hội thoại để AI tự đọc</span>
         )}
       </div>
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFileChange} />

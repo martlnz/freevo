@@ -1,6 +1,8 @@
 // End-to-end flow test for lib/ (mock LLM). Run: npm run test:flow
 process.env.LLM_MOCK = "1";
 
+import { existsSync, unlinkSync } from "node:fs";
+import { resolve } from "node:path";
 import { db } from "../lib/db";
 import { createClient } from "../lib/clients";
 import { assignMessageToClient, listUnassignedMessages } from "../lib/messages";
@@ -8,6 +10,7 @@ import { createPR, getPR, updateChange, mergePR, rejectPR } from "../lib/pr";
 import { getLatestVersion, listVersions, rollback } from "../lib/versions";
 import { getPricing } from "../lib/pricing";
 import { getByToken, respond } from "../lib/confirmations";
+import { ingestScreenshot } from "../lib/routing";
 import { wrap } from "../lib/result";
 
 let fails = 0;
@@ -119,6 +122,22 @@ async function main() {
   const minhAfter = await db.client.findUniqueOrThrow({ where: { id: minhId } });
   check("assignMessageToClient tự học email phụ + gom cả 2 tin", learnedRes.learnedEmail === "minh.work@example.com" && learnedRes.totalAssignedCount === 2, learnedRes);
   check("Client.emails đã lưu minh.work@example.com và sạch inbox", JSON.parse(minhAfter.emails).includes("minh.work@example.com") && (await listUnassignedMessages()).length === 0);
+
+  // 1 screenshot = 1 combined transcript message
+  const png1x1 = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=", "base64");
+  const shot = await ingestScreenshot({ buffer: png1x1, mimeType: "image/png", filenameHint: "test-anh.png", clientId: client.id });
+  const shotMsgs = await db.message.findMany({ where: { sourceImage: shot.sourceImage } });
+  check(
+    "ingestScreenshot lưu đúng 1 tin nhắn gộp (Khách:/Bạn:) kèm sourceImage",
+    shot.extractedCount === 1 &&
+      shotMsgs.length === 1 &&
+      shotMsgs[0].text.includes("Khách:") &&
+      shotMsgs[0].text.includes("Bạn:") &&
+      shotMsgs[0].sourceImage === shot.sourceImage,
+    { extractedCount: shot.extractedCount, rows: shotMsgs.length, text: shotMsgs[0]?.text },
+  );
+  const uploadFile = resolve(process.cwd(), "public", "uploads", shot.sourceImage.replace("/api/uploads/", ""));
+  if (existsSync(uploadFile)) unlinkSync(uploadFile);
 
   console.log(fails === 0 ? "\nTẤT CẢ PASS" : `\n${fails} FAIL`);
   process.exitCode = fails === 0 ? 0 : 1;

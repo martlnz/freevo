@@ -254,7 +254,7 @@ export function InboxUnassignedClient({
           <span className="flex items-start gap-2 font-medium">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
             <span>
-              {`Đã nhận diện: ${notice.clientName} · tách ${notice.count} tin nhắn`}
+              {`Đã nhận diện: ${notice.clientName} · đã lưu nội dung ảnh vào hộp tin`}
               {notice.budget !== null && notice.budget > 0 ? ` · ngân sách ${formatVND(notice.budget)}` : ""}
             </span>
           </span>
@@ -272,7 +272,7 @@ export function InboxUnassignedClient({
           <Info className="mt-0.5 size-4 shrink-0" />
           <div className="flex flex-col gap-1">
             <span className="font-medium">
-              {`Đã tách ${notice.count} tin từ ảnh vào danh sách chưa phân loại bên dưới`}
+              Đã đọc ảnh và lưu vào danh sách chưa phân loại bên dưới
             </span>
             {notice.suggestion ? (
               <span>

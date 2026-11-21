@@ -225,7 +225,7 @@ export async function handleImage(chatId: string, photoUrl: string) {
       const budgetTag = res.detectedBudget ? `\n💰 Ngân sách phát hiện: ${formatVND(res.detectedBudget)}` : "";
       return send(
         chatId,
-        `📷 Đã đọc ảnh cho ${res.clientName}${autoTag}: tách ${res.extractedCount} tin nhắn (${pending} tin chờ).${budgetTag}`,
+        `📷 Đã đọc ảnh cho ${res.clientName}${autoTag} (${pending} tin chờ).${budgetTag}`,
       );
     }
 
@@ -234,7 +234,7 @@ export async function handleImage(chatId: string, photoUrl: string) {
       : "";
     return send(
       chatId,
-      `📷 Đã tách ${res.extractedCount} tin nhắn từ ảnh nhưng chưa rõ khách nào. Đã lưu vào Hộp tin chưa phân loại.${sug}\nXem & gán tại: ${APP_URL}/inbox`,
+      `📷 Đã đọc ảnh${res.detectedContactName ? ` (${res.detectedContactName})` : ""} nhưng chưa rõ khách nào. Đã lưu vào Hộp tin chưa phân loại.${sug}\nXem & gán tại: ${APP_URL}/inbox`,
     );
   } catch (e) {
     console.error("handleImage error:", (e as Error).message);
