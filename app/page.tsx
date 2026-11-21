@@ -1,103 +1,93 @@
-import Image from "next/image";
+import Link from "next/link";
+import { AppShell } from "@/components/AppShell";
+import { NewClientDialog } from "@/components/clients/NewClientDialog";
+import { formatVND } from "@/components/MoneyBlock";
+import { getClientDetail, listClients } from "@/lib/clients";
+import type { PRChange } from "@/lib/types";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+type Tone = "wait" | "ok" | "none";
+type Detail = Awaited<ReturnType<typeof getClientDetail>>;
+type St = { text: string; tone: Tone; urgent: boolean };
+
+function status(d: Detail): St {
+  const open = d.prs.find((p) => p.status === "open");
+  if (open) {
+    const n = (JSON.parse(open.changes) as PRChange[]).length;
+    return { text: `Đang chờ bạn duyệt đề xuất, ${n} thay đổi`, tone: "wait", urgent: true };
+  }
+  if (d.pendingCount > 0) return { text: `Có ${d.pendingCount} tin mới, chưa tạo PR`, tone: "wait", urgent: true };
+  const merged = d.prs.find((p) => p.status === "merged" && p.confirmation);
+  const v = merged?.mergedVersionNo ?? d.versions[0]?.number;
+  if (merged?.confirmation?.status === "pending") return { text: `Chờ khách xác nhận v${v}`, tone: "wait", urgent: false };
+  if (merged?.confirmation?.status === "confirmed") return { text: `Khách đã đồng ý v${v}`, tone: "ok", urgent: false };
+  if (merged?.confirmation?.status === "declined") return { text: `Khách cần sửa lại v${v}`, tone: "wait", urgent: true };
+  return { text: "Không có việc cần làm", tone: "none", urgent: false };
+}
+
+const TONE: Record<Tone, string> = { wait: "text-modify", ok: "text-add", none: "text-muted" };
+const word = ["Không", "Một", "Hai", "Ba", "Bốn", "Năm", "Sáu", "Bảy", "Tám", "Chín"];
+
+export default async function Home() {
+  let rows: { id: string; name: string; projectName: string | null; contractPrice: number; st: St }[] = [];
+  let error: string | null = null;
+  try {
+    const clients = await listClients();
+    const details = await Promise.all(clients.map((c) => getClientDetail(c.id)));
+    rows = details.map((d) => ({ id: d.id, name: d.name, projectName: d.projectName, contractPrice: d.contractPrice, st: status(d) }));
+  } catch (e) {
+    error = e instanceof Error ? e.message : "Không tải được danh sách khách hàng.";
+  }
+  const waiting = rows.filter((r) => r.st.urgent).length;
+  const sub = error
+    ? ""
+    : rows.length === 0
+      ? "Chưa có khách nào. Thêm khách đầu tiên để bắt đầu."
+      : waiting > 0
+        ? `${word[waiting] ?? waiting} khách đang chờ bạn.`
+        : "Không có khách nào đang chờ bạn.";
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <AppShell>
+      <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end sm:gap-6">
+        <div>
+          <p className="mb-2 text-sm text-muted">freevo</p>
+          <h1 className="text-2xl font-semibold leading-tight tracking-[-0.02em] sm:text-[32px]">Khách hàng</h1>
+          {sub && <p className="mt-2 max-w-[60ch] text-muted">{sub}</p>}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        <NewClientDialog />
+      </div>
+
+      {error && <p role="alert" className="rounded-[10px] border border-remove bg-remove-tint p-4 font-medium text-remove">{error}</p>}
+
+      {rows.length > 0 && (
+        <div className="overflow-hidden rounded-[10px] border border-hairline bg-surface">
+          <div className="hidden grid-cols-[1.3fr_1.6fr_1fr_140px] gap-6 px-6 py-3 text-[13px] text-muted sm:grid">
+            <span>Khách</span>
+            <span>Trạng thái</span>
+            <span className="text-right">Giá trị</span>
+            <span />
+          </div>
+          {rows.map((r) => (
+            <Link
+              key={r.id}
+              href={`/clients/${r.id}`}
+              className="grid min-h-[72px] grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 border-t border-hairline px-4 py-4 hover:bg-ground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent sm:grid-cols-[1.3fr_1.6fr_1fr_140px] sm:gap-6 sm:px-6 sm:py-5"
+            >
+              <span className="col-start-1 row-start-1 min-w-0 sm:row-start-auto">
+                <span className="block break-words font-semibold">{r.name}</span>
+                {r.projectName && <span className="hidden break-words text-[13px] text-muted sm:block">{r.projectName}</span>}
+              </span>
+              {r.projectName && <span className="col-span-2 row-start-2 break-words text-sm text-muted sm:hidden">{r.projectName}</span>}
+              <span className={`col-span-2 row-start-3 font-medium sm:col-span-1 sm:row-start-auto ${TONE[r.st.tone]}`}>{r.st.text}</span>
+              <span className="tabular col-start-2 row-start-1 whitespace-nowrap text-right font-semibold sm:col-start-auto sm:row-start-auto">{formatVND(r.contractPrice)}</span>
+              <span className="hidden text-right text-[13px] text-muted sm:block">Mở</span>
+            </Link>
+          ))}
+        </div>
+      )}
+      {rows.length > 0 && <p className="mt-4 text-[13px] text-muted">Giá trị đã gồm thuế 10%.</p>}
+    </AppShell>
   );
 }
