@@ -41,7 +41,7 @@ async function main() {
   check("vai trò tin nhắn unknown đã được suy luận", roles === 0, roles);
 
   const pricing = await getPricing(client.id, pr.id);
-  check("pricing đề xuất > 0", pricing.suggestedPrice > 0 && pricing.proposedEffort === pricing.currentEffort + pr.effortDelta, pricing);
+  check("pricing đề xuất > 0 và có budget 7,000,000", pricing.suggestedPrice > 0 && pricing.budget === 7000000 && pricing.proposedEffort === pricing.currentEffort + pr.effortDelta, pricing);
 
   const merged = await mergePR(pr.id);
   const v = await getLatestVersion(client.id);

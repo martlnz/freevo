@@ -2,6 +2,8 @@
 process.env.LLM_MOCK = "1";
 
 import { db } from "../lib/db";
+import { createClient } from "../lib/clients";
+import { assignMessageToClient, listUnassignedMessages } from "../lib/messages";
 import { createPR, getPR, updateChange, mergePR, rejectPR } from "../lib/pr";
 import { getLatestVersion, listVersions, rollback } from "../lib/versions";
 import { getPricing } from "../lib/pricing";
@@ -21,15 +23,16 @@ async function main() {
   check("createPR: open, có thay đổi", pr.status === "open" && pr.changes.length > 0, pr.status);
   check("createPR: baseVersionNo = 2", pr.baseVersionNo === 2, pr.baseVersionNo);
 
-  // pricing with 10% tax
+  // pricing with 10% tax (effort computed from merged PRs: 9 + 1 = 10, budget = 7,000,000)
   process.env.TAX_RATE = "0.1";
   const p = await getPricing(client.id, pr.id);
   const unit = (6000000 / 8 + 9500000 / 12 + 4500000 / 6 + 12000000 / 15) / 4;
   check("pricing: unitPrice đúng", Math.abs(p.unitPrice - unit) < 1e-6, p.unitPrice);
-  check("pricing: currentEffort = 9 + 1", p.currentEffort === 10, p.currentEffort);
+  check("pricing: currentEffort = 9 + 1 (từ PRs đã merge)", p.currentEffort === 10, p.currentEffort);
   check("pricing: proposedEffort = current + delta", p.proposedEffort === p.currentEffort + pr.effortDelta, p);
   check("pricing: suggested làm tròn 100k", p.suggestedPrice === Math.round((p.proposedEffort * unit) / 100000) * 100000, p.suggestedPrice);
-  check("pricing: net = giá * 0.9", p.netCurrent === 6300000 && p.netSuggested === Math.round(p.suggestedPrice * 0.9), p);
+  check("pricing: budget = 7,000,000 & overBudget", p.budget === 7000000 && p.netBudget === 6300000 && p.overBudget === (p.suggestedPrice > 7000000), p);
+  check("pricing: netSuggested = giá * 0.9", p.netSuggested === Math.round(p.suggestedPrice * 0.9), p);
   check("pricing: priceForNet(9,000,000) = 10,000,000", p.priceForNet(9000000) === 10000000, p.priceForNet(9000000));
 
   // toggle accepted, then merge
@@ -69,7 +72,7 @@ async function main() {
   const ur = await wrap(() => respond("khong-ton-tai", { approved: true }));
   check("respond token lạ -> Result lỗi", isErr(ur), ur);
 
-  // reject then merge: needs a new open PR
+  // reject then merge
   await db.message.create({ data: { clientId: client.id, channel: "manual", sender: "client", text: "Thêm trang Giới thiệu nữa nhé", sentAt: new Date() } });
   const pr2 = await createPR(client.id);
   const rej = await wrap(() => rejectPR(pr2.id));
@@ -88,6 +91,25 @@ async function main() {
   check("rollback: snapshot v4 = v1", vs[0].snapshot.requirements.length === 5 && JSON.stringify(vs[0].snapshot) === JSON.stringify(vs[3].snapshot));
   const rbBad = await wrap(() => rollback(client.id, 99));
   check("rollback version không tồn tại -> Result lỗi", isErr(rbBad), rbBad);
+
+  // auto-scan on client creation (Chị Lan + lan.spa@example.com) -> PR v1 -> budget 9,500,000
+  const unassignedBefore = await listUnassignedMessages();
+  check("seed có 3 tin chưa phân loại", unassignedBefore.length === 3, unassignedBefore.length);
+  const lan = await createClient({ name: "Chị Lan", emails: ["lan.spa@example.com"], projectName: "Website Spa Sen" }, { autoCreateInitialPR: true });
+  check("createClient quét đúng 2 email lan.spa@example.com", lan.attachedCount === 2, lan.attachedCount);
+  check("createClient tự dựng PR khởi tạo v1", !!lan.initialPrId, lan.initialPrId);
+  const lanAfter = await db.client.findUniqueOrThrow({ where: { id: lan.id } });
+  check("createPR tự cập nhật budget = 9,500,000", lanAfter.budget === 9500000, lanAfter.budget);
+  const lanMerged = await mergePR(lan.initialPrId!);
+  check("merge PR khởi tạo tạo đúng v1", lanMerged.versionNo === 1, lanMerged.versionNo);
+  const lanPricing = await getPricing(lan.id);
+  check("currentEffort của Chị Lan lấy từ PR v1 = 12", lanPricing.currentEffort === 12, lanPricing.currentEffort);
+
+  // assign remaining unassigned Zalo message to Anh Minh
+  const unassignedAfter = await listUnassignedMessages();
+  check("còn 1 tin Zalo chưa phân loại có gợi ý Anh Minh", unassignedAfter.length === 1 && !!unassignedAfter[0].suggestedClientId, unassignedAfter);
+  await assignMessageToClient(unassignedAfter[0].id, unassignedAfter[0].suggestedClientId!);
+  check("sau khi gán còn 0 tin chưa phân loại", (await listUnassignedMessages()).length === 0);
 
   console.log(fails === 0 ? "\nTẤT CẢ PASS" : `\n${fails} FAIL`);
   process.exitCode = fails === 0 ? 0 : 1;

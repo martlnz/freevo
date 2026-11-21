@@ -33,19 +33,77 @@ const ZALO = [
 
 const DAY = 86400000;
 
-async function seedClient(name: string, opts: { zaloMessages: boolean }) {
+async function seedClient(name: string, opts: { zaloMessages: boolean; email: string }) {
   const now = Date.now();
   const c = await db.client.create({
     data: {
       name,
-      emails: JSON.stringify(["minh.cafe@example.com"]),
+      emails: JSON.stringify([opts.email]),
       projectName: "Landing page quán cà phê Mộc",
-      contractPrice: 7000000,
-      baseEffort: 9,
+      budget: 7000000,
     },
   });
-  await db.version.create({ data: { clientId: c.id, number: 1, snapshot: JSON.stringify({ requirements: V1 }), note: "Bản đầu tiên" } });
-  const pr = await db.pullRequest.create({
+
+  // PR #1 (initial v1): 9 effort points derived from initial scope messages + budget 7M
+  const pr1 = await db.pullRequest.create({
+    data: {
+      clientId: c.id,
+      status: "merged",
+      summary: "Khởi tạo phạm vi ban đầu cho landing page quán cà phê Mộc.",
+      effortDelta: 9,
+      baseVersionNo: 0,
+      mergedVersionNo: 1,
+      mergedAt: new Date(now - 10 * DAY),
+      createdAt: new Date(now - 10 * DAY),
+      changes: JSON.stringify(
+        V1.map((r) => ({
+          op: "add",
+          reqId: r.id,
+          title: r.title,
+          detail: r.detail,
+          status: "agreed",
+          reason: "Yêu cầu ban đầu qua email.",
+          evidence: [],
+          accepted: true,
+          selectedEvidence: [],
+        })),
+      ),
+    },
+  });
+  const initMsg1 = await db.message.create({
+    data: {
+      clientId: c.id,
+      channel: "gmail",
+      sender: "client",
+      contact: opts.email,
+      text: "Chào em, anh cần làm landing page quán cà phê Mộc gồm trang chủ, menu, màu xanh navy, form đặt bàn và Google Maps. Ngân sách bên anh khoảng 7 triệu em nhé.",
+      sentAt: new Date(now - 11 * DAY),
+      prId: pr1.id,
+    },
+  });
+  const initMsg2 = await db.message.create({
+    data: {
+      clientId: c.id,
+      channel: "gmail",
+      sender: "freelancer",
+      contact: opts.email,
+      text: "Dạ em đã nhận đủ thông tin và lên danh sách 5 hạng mục ban đầu cho bản v1 ạ.",
+      sentAt: new Date(now - 11 * DAY + 1800000),
+      prId: pr1.id,
+    },
+  });
+  const pr1Changes = JSON.parse(pr1.changes).map((ch: Record<string, unknown>) => ({
+    ...ch,
+    evidence: [initMsg1.id, initMsg2.id],
+    selectedEvidence: [initMsg1.id, initMsg2.id],
+  }));
+  await db.pullRequest.update({ where: { id: pr1.id }, data: { changes: JSON.stringify(pr1Changes) } });
+  await db.version.create({
+    data: { clientId: c.id, number: 1, snapshot: JSON.stringify({ requirements: V1 }), prId: pr1.id, note: "Bản đầu tiên" },
+  });
+
+  // PR #2 (v2): +1 effort point
+  const pr2 = await db.pullRequest.create({
     data: {
       clientId: c.id,
       status: "merged",
@@ -71,21 +129,47 @@ async function seedClient(name: string, opts: { zaloMessages: boolean }) {
     },
   });
   const e1 = await db.message.create({
-    data: { clientId: c.id, channel: "gmail", sender: "client", text: "Chào em, anh muốn thêm nút gọi điện ở góc màn hình cho người dùng điện thoại.", sentAt: new Date(now - 6 * DAY), prId: pr.id },
+    data: {
+      clientId: c.id,
+      channel: "gmail",
+      sender: "client",
+      contact: opts.email,
+      text: "Chào em, anh muốn thêm nút gọi điện ở góc màn hình cho người dùng điện thoại.",
+      sentAt: new Date(now - 6 * DAY),
+      prId: pr2.id,
+    },
   });
   const e2 = await db.message.create({
-    data: { clientId: c.id, channel: "gmail", sender: "client", text: "Nút gọi cho nổi lên, bấm là gọi luôn nhé em.", sentAt: new Date(now - 6 * DAY + 3600000), prId: pr.id },
+    data: {
+      clientId: c.id,
+      channel: "gmail",
+      sender: "client",
+      contact: opts.email,
+      text: "Nút gọi cho nổi lên, bấm là gọi luôn nhé em.",
+      sentAt: new Date(now - 6 * DAY + 3600000),
+      prId: pr2.id,
+    },
   });
-  const changes = JSON.parse((await db.pullRequest.findUniqueOrThrow({ where: { id: pr.id } })).changes);
-  changes[0].evidence = [e1.id, e2.id];
-  changes[0].selectedEvidence = [e1.id, e2.id];
-  await db.pullRequest.update({ where: { id: pr.id }, data: { changes: JSON.stringify(changes) } });
-  await db.version.create({ data: { clientId: c.id, number: 2, snapshot: JSON.stringify({ requirements: V2 }), prId: pr.id, note: pr.summary } });
-  await db.confirmation.create({ data: { prId: pr.id, status: "confirmed", respondedAt: new Date(now - 4 * DAY) } });
+  const changes2 = JSON.parse((await db.pullRequest.findUniqueOrThrow({ where: { id: pr2.id } })).changes);
+  changes2[0].evidence = [e1.id, e2.id];
+  changes2[0].selectedEvidence = [e1.id, e2.id];
+  await db.pullRequest.update({ where: { id: pr2.id }, data: { changes: JSON.stringify(changes2) } });
+  await db.version.create({
+    data: { clientId: c.id, number: 2, snapshot: JSON.stringify({ requirements: V2 }), prId: pr2.id, note: pr2.summary },
+  });
+  await db.confirmation.create({ data: { prId: pr2.id, status: "confirmed", respondedAt: new Date(now - 4 * DAY) } });
   await db.pastProject.createMany({ data: PAST.map((p) => ({ ...p, clientId: c.id })) });
 
+  // Pending Gmail message
   await db.message.create({
-    data: { clientId: c.id, channel: "gmail", sender: "client", text: "Chào em, anh bổ sung: trang menu anh muốn có ảnh cho từng món nhé.", sentAt: new Date(now - DAY) },
+    data: {
+      clientId: c.id,
+      channel: "gmail",
+      sender: "client",
+      contact: opts.email,
+      text: "Chào em, anh bổ sung: trang menu anh muốn có ảnh cho từng món nhé.",
+      sentAt: new Date(now - DAY),
+    },
   });
   if (opts.zaloMessages) {
     const base = now - 2 * 3600000;
@@ -99,9 +183,42 @@ async function seedClient(name: string, opts: { zaloMessages: boolean }) {
 }
 
 async function main() {
-  const minh = await seedClient("Anh Minh", { zaloMessages: false });
-  const demo = await seedClient("Demo dự phòng", { zaloMessages: true });
-  console.log(`Seed xong: Anh Minh (${minh.id}), Demo dự phòng (${demo.id})`);
+  const now = Date.now();
+  const minh = await seedClient("Anh Minh", { zaloMessages: false, email: "minh.cafe@example.com" });
+  const demo = await seedClient("Demo dự phòng", { zaloMessages: true, email: "demo.cafe@example.com" });
+
+  // Unassigned Gmail messages for a not-yet-created client ("lan.spa@example.com")
+  await db.message.createMany({
+    data: [
+      {
+        clientId: null,
+        channel: "gmail",
+        sender: "client",
+        contact: "lan.spa@example.com",
+        text: "Chào em, chị bên Spa Sen. Chị muốn làm website gồm: trang chủ giới thiệu không gian spa và bảng giá liệu trình nhé.",
+        sentAt: new Date(now - 3 * 3600000),
+      },
+      {
+        clientId: null,
+        channel: "gmail",
+        sender: "client",
+        contact: "lan.spa@example.com",
+        text: "Thêm form đặt lịch hẹn và bản đồ chỉ đường giúp chị. Ngân sách bên chị dự kiến 9 triệu rưỡi em ạ.",
+        sentAt: new Date(now - 2 * 3600000),
+      },
+      {
+        clientId: null,
+        channel: "zalo",
+        sender: "unknown",
+        text: "Em ơi nhớ làm màu nâu cà phê đậm một chút cho hợp phong cách quán Mộc nha",
+        suggestedClientId: minh.id,
+        suggestedReason: "Nhắc màu nâu cà phê và quán Mộc, khớp dự án của Anh Minh.",
+        sentAt: new Date(now - 30 * 60000),
+      },
+    ],
+  });
+
+  console.log(`Seed xong: Anh Minh (${minh.id}), Demo dự phòng (${demo.id}), + 3 tin chưa phân loại`);
 }
 
 main().finally(() => db.$disconnect());

@@ -1,4 +1,6 @@
 import { db } from "./db";
+import { scanAndAttachMessagesForClient } from "./messages";
+import { createPR } from "./pr";
 import type { ReqSnapshot } from "./types";
 
 export type ClientInput = {
@@ -8,8 +10,7 @@ export type ClientInput = {
   zaloId?: string | null;
   note?: string | null;
   projectName?: string | null;
-  contractPrice?: number;
-  baseEffort?: number;
+  budget?: number | null;
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -21,8 +22,9 @@ function validate(d: Partial<ClientInput>, requireName: boolean) {
   for (const e of d.emails ?? []) {
     if (!EMAIL_RE.test(e)) throw new Error(`Email không hợp lệ: ${e}`);
   }
-  if (d.contractPrice !== undefined && !(d.contractPrice >= 0)) throw new Error("Giá phải lớn hơn hoặc bằng 0.");
-  if (d.baseEffort !== undefined && !(d.baseEffort >= 0)) throw new Error("Khối lượng phải lớn hơn hoặc bằng 0.");
+  if (d.budget !== undefined && d.budget !== null && !(d.budget >= 0)) {
+    throw new Error("Ngân sách phải lớn hơn hoặc bằng 0.");
+  }
 }
 
 export function parseEmails(s: string): string[] {
@@ -42,15 +44,20 @@ export async function listClients() {
       versions: { orderBy: { number: "desc" }, take: 1, select: { number: true, prId: true } },
       prs: {
         orderBy: { createdAt: "desc" },
-        select: { id: true, status: true, confirmation: { select: { status: true } } },
+        select: { id: true, status: true, effortDelta: true, confirmation: { select: { status: true } } },
       },
     },
   });
-  const pending = await db.message.groupBy({ by: ["clientId"], where: { prId: null }, _count: true });
-  const pm = new Map(pending.map((p) => [p.clientId, p._count]));
+  const pending = await db.message.groupBy({
+    by: ["clientId"],
+    where: { clientId: { not: null }, prId: null },
+    _count: true,
+  });
+  const pm = new Map(pending.filter((p) => p.clientId).map((p) => [p.clientId as string, p._count]));
   return rows.map(({ versions, prs, _count, ...c }) => {
     const latestVersion = versions[0];
     const openPrs = prs.filter((p) => p.status === "open");
+    const currentEffort = prs.filter((p) => p.status === "merged").reduce((s, p) => s + p.effortDelta, 0);
     const versionPr = latestVersion?.prId
       ? prs.find((p) => p.id === latestVersion.prId && p.confirmation)
       : undefined;
@@ -61,6 +68,7 @@ export async function listClients() {
       emails: parseEmails(c.emails),
       pendingCount: pm.get(c.id) ?? 0,
       prCount: _count.prs,
+      currentEffort,
       currentVersionNo: latestVersion?.number ?? 0,
       openPrCount: openPrs.length,
       latestOpenPrId: openPrs[0]?.id ?? null,
@@ -81,6 +89,7 @@ export async function getClientDetail(id: string) {
   if (!c) throw new Error("Không tìm thấy khách hàng.");
   const pendingCount = await db.message.count({ where: { clientId: id, prId: null } });
   const latest = c.versions[0];
+  const currentEffort = c.prs.filter((p) => p.status === "merged").reduce((s, p) => s + p.effortDelta, 0);
   const latestPrWithConf =
     (latest?.prId ? c.prs.find((p) => p.id === latest.prId && p.confirmation) : undefined) ??
     c.prs.find((p) => p.status === "merged" && p.confirmation);
@@ -98,35 +107,52 @@ export async function getClientDetail(id: string) {
     ...c,
     emails: parseEmails(c.emails),
     pendingCount,
+    currentEffort,
     latestSnapshot: (latest ? JSON.parse(latest.snapshot) : { requirements: [] }) as ReqSnapshot,
     latestConfirmation,
   };
 }
 
-export async function createClient(data: ClientInput) {
+export async function createClient(data: ClientInput, opts?: { autoCreateInitialPR?: boolean }) {
   validate(data, true);
+  const emails = data.emails ?? [];
   const c = await db.client.create({
     data: {
       name: data.name.trim(),
       phone: data.phone || null,
-      emails: JSON.stringify(data.emails ?? []),
+      emails: JSON.stringify(emails),
       zaloId: data.zaloId || null,
       note: data.note || null,
       projectName: data.projectName || null,
-      contractPrice: data.contractPrice ?? 0,
-      baseEffort: data.baseEffort ?? 0,
+      budget: data.budget ?? null,
     },
   });
-  await db.version.create({
-    data: { clientId: c.id, number: 1, snapshot: JSON.stringify({ requirements: [] }), note: "Khởi tạo" },
+
+  const { attachedCount } = await scanAndAttachMessagesForClient({
+    id: c.id,
+    name: c.name,
+    emails,
+    phone: c.phone,
+    zaloId: c.zaloId,
   });
-  return c;
+
+  let initialPrId: string | null = null;
+  if (opts?.autoCreateInitialPR && attachedCount > 0) {
+    try {
+      const pr = await createPR(c.id);
+      initialPrId = pr.id;
+    } catch {
+      // Keep client & attached messages if LLM fails transiently
+    }
+  }
+
+  return { ...c, attachedCount, initialPrId };
 }
 
 export async function updateClient(id: string, data: Partial<ClientInput>) {
   validate(data, false);
   const { emails, name, ...rest } = data;
-  return db.client.update({
+  const updated = await db.client.update({
     where: { id },
     data: {
       ...rest,
@@ -134,6 +160,14 @@ export async function updateClient(id: string, data: Partial<ClientInput>) {
       ...(emails !== undefined ? { emails: JSON.stringify(emails) } : {}),
     },
   });
+  await scanAndAttachMessagesForClient({
+    id: updated.id,
+    name: updated.name,
+    emails: parseEmails(updated.emails),
+    phone: updated.phone,
+    zaloId: updated.zaloId,
+  });
+  return updated;
 }
 
 export async function findOrCreateClientByName(name: string) {

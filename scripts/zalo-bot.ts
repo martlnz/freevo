@@ -1,10 +1,13 @@
-/* Zalo bot worker: long-polls getUpdates and stores forwarded client messages.
+/* Zalo bot worker: long-polls getUpdates, handles text commands, @mention routing, and screenshot images.
  * Run: npm run zalo-bot */
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
+import { extname } from "node:path";
 import { db as prisma } from "../lib/db";
 import { listClients, findOrCreateClientByName } from "../lib/clients";
-import { addMessage, listPendingMessages } from "../lib/messages";
+import { addMessage, assignMessageToClient, listPendingMessages } from "../lib/messages";
 import { createPR } from "../lib/pr";
+import { formatVND } from "../lib/pricing-calc";
+import { ingestScreenshot, suggestClientForText } from "../lib/routing";
 
 try { process.loadEnvFile(".env"); } catch {}
 
@@ -13,31 +16,72 @@ const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 const TTL_MS = Number(process.env.ACTIVE_CLIENT_TTL_HOURS ?? 2) * 3600_000;
 const API = `https://bot-api.zaloplatforms.com/bot${TOKEN}`;
 const STATE_ID = "zalo";
-const DRY = process.env.ZALO_DRY === "1"; // tests: print replies instead of calling sendMessage
+const DRY = process.env.ZALO_DRY === "1";
 
 const countPending = async (clientId: string) => (await listPendingMessages(clientId)).length;
+
+function stripAccents(s: string) {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .trim();
+}
+
 async function findOrCreate(name: string) {
-  const hit = (await listClients()).find((c) => c.name.toLowerCase() === name.toLowerCase());
+  const hit = (await listClients()).find((c) => c.name.toLowerCase() === name.trim().toLowerCase());
   if (hit) return { client: hit, created: false };
   return { client: await findOrCreateClientByName(name), created: true };
 }
 
 // ---------------------------------------------------------------------------
 type ApiResp<T> = { ok: boolean; result?: T; description?: string; error_code?: number };
+type Attachment = { type?: string; url?: string; payload?: { url?: string } };
 type Update = {
   event_name?: string;
-  message?: { message_id: string; date?: number; text?: string; from?: { id: string; display_name?: string }; chat: { id: string; chat_type?: string } };
+  message?: {
+    message_id: string;
+    date?: number;
+    text?: string;
+    photo_url?: string;
+    image_url?: string;
+    attachments?: Attachment[];
+    from?: { id: string; display_name?: string };
+    chat: { id: string; chat_type?: string };
+  };
 };
+
+export function extractImageUrl(u: Update): string | null {
+  const m = u.message;
+  if (!m) return null;
+  if (m.photo_url) return m.photo_url;
+  if (m.image_url) return m.image_url;
+  for (const a of m.attachments ?? []) {
+    if (a.type === "image" || a.type === "photo" || !a.type) {
+      if (a.payload?.url) return a.payload.url;
+      if (a.url) return a.url;
+    }
+  }
+  return null;
+}
 
 async function call<T>(method: string, body: object = {}): Promise<ApiResp<T>> {
   const res = await fetch(`${API}/${method}`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
   return (await res.json()) as ApiResp<T>;
 }
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const send = async (chat_id: string, text: string) => {
-  if (DRY) { console.log("BOT>", text); return; }
+  if (DRY) {
+    console.log("BOT>", text);
+    return;
+  }
   const r = await call("sendMessage", { chat_id, text: text.slice(0, 2000) });
   if (!r.ok) console.error("sendMessage failed:", r.error_code, r.description);
 };
@@ -45,30 +89,128 @@ const send = async (chat_id: string, text: string) => {
 async function getState() {
   return prisma.botState.upsert({ where: { id: STATE_ID }, update: {}, create: { id: STATE_ID } });
 }
+
 async function setActive(clientId: string) {
   await prisma.botState.upsert({
-    where: { id: STATE_ID }, update: { activeClientId: clientId, updatedAt: new Date() },
+    where: { id: STATE_ID },
+    update: { activeClientId: clientId, updatedAt: new Date() },
     create: { id: STATE_ID, activeClientId: clientId },
   });
+}
+
+async function getActiveClient() {
+  const state = await getState();
+  if (!state.activeClientId || Date.now() - state.updatedAt.getTime() > TTL_MS) return null;
+  return prisma.client.findUnique({ where: { id: state.activeClientId } });
 }
 
 const HELP = [
   "Lệnh:",
   "/khach – liệt kê khách, rồi gõ số để chọn",
   "/khach <tên> – chọn (hoặc tạo mới) khách",
+  "@<TênKhách> <tin nhắn> – gắn nhanh tin vào khách đó",
   "/xong – tổng hợp tin thành PR",
   "/help – xem hướng dẫn",
-  "Tin khác (kể cả tin chuyển tiếp) sẽ được lưu cho khách đang chọn.",
+  "Bạn cũng có thể GỬI ẢNH CHỤP MÀN HÌNH đoạn chat: AI sẽ tự đọc tin nhắn, nhận diện tên khách và ngân sách.",
 ].join("\n");
 
-let awaitingPick: string[] | null = null; // client ids offered by the last /khach
-const heldText = new Map<string, string[]>(); // chatId -> texts received with no active client
+let awaitingPick: string[] | null = null;
+const heldMsgIds = new Map<string, string[]>();
 
 async function attachHeld(chatId: string, clientId: string) {
-  const held = heldText.get(chatId) ?? [];
-  heldText.delete(chatId);
-  for (const text of held) await addMessage({ clientId, channel: "zalo", sender: "unknown", text });
-  return held.length;
+  const ids = heldMsgIds.get(chatId) ?? [];
+  heldMsgIds.delete(chatId);
+  let attached = 0;
+  for (const id of ids) {
+    try {
+      await assignMessageToClient(id, clientId);
+      attached++;
+    } catch {}
+  }
+  return attached;
+}
+
+async function matchMentionPrefix(raw: string) {
+  if (!raw.startsWith("@")) return null;
+  const rest = raw.slice(1).trim();
+  if (!rest) return null;
+  const clients = await listClients();
+  const restClean = stripAccents(rest);
+  // Sort longest client names first so "Anh Minh" matches before "Minh"
+  const sorted = [...clients].sort((a, b) => b.name.length - a.name.length);
+  for (const c of sorted) {
+    const cname = stripAccents(c.name);
+    const compact = cname.replace(/\s+/g, "");
+    if (restClean.startsWith(cname + " ")) {
+      const msgText = rest.slice(c.name.length).trim();
+      if (msgText) return { client: c, text: msgText };
+    }
+    if (compact.length >= 3 && restClean.startsWith(compact + " ")) {
+      const sp = rest.indexOf(" ");
+      const msgText = sp > 0 ? rest.slice(sp + 1).trim() : "";
+      if (msgText) return { client: c, text: msgText };
+    }
+  }
+  return null;
+}
+
+function guessMimeFromPath(p: string): string {
+  const ext = extname(p).toLowerCase();
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".gif") return "image/gif";
+  return "image/png";
+}
+
+async function loadPhotoBuffer(photoUrl: string): Promise<{ buffer: Buffer; mimeType: string; name: string }> {
+  if (photoUrl.startsWith("data:")) {
+    const m = photoUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (!m) throw new Error("Định dạng data URL không hợp lệ.");
+    return { buffer: Buffer.from(m[2], "base64"), mimeType: m[1], name: "screenshot.png" };
+  }
+  if (!/^https?:\/\//i.test(photoUrl)) {
+    return { buffer: readFileSync(photoUrl), mimeType: guessMimeFromPath(photoUrl), name: photoUrl };
+  }
+  const resp = await fetch(photoUrl);
+  if (!resp.ok) throw new Error(`Không tải được ảnh (${resp.status}).`);
+  const mimeType = resp.headers.get("content-type")?.split(";")[0] || guessMimeFromPath(photoUrl);
+  return { buffer: Buffer.from(await resp.arrayBuffer()), mimeType, name: photoUrl };
+}
+
+export async function handleImage(chatId: string, photoUrl: string) {
+  try {
+    const active = await getActiveClient();
+    const { buffer, mimeType, name } = await loadPhotoBuffer(photoUrl);
+    const res = await ingestScreenshot({
+      buffer,
+      mimeType,
+      filenameHint: name,
+      clientId: active?.id ?? null,
+      channelOverride: "zalo",
+    });
+
+    if (res.clientId && res.clientName) {
+      if (!active) await setActive(res.clientId);
+      const pending = await countPending(res.clientId);
+      const autoTag = res.matchedAutomatically ? " (tự nhận diện từ ảnh)" : "";
+      const budgetTag = res.detectedBudget ? `\n💰 Ngân sách phát hiện: ${formatVND(res.detectedBudget)}` : "";
+      return send(
+        chatId,
+        `📷 Đã đọc ảnh cho ${res.clientName}${autoTag}: tách ${res.extractedCount} tin nhắn (${pending} tin chờ).${budgetTag}`,
+      );
+    }
+
+    const sug = res.suggestedClientName
+      ? `\n💡 AI gợi ý: ${res.suggestedClientName}${res.suggestedReason ? ` — ${res.suggestedReason}` : ""}`
+      : "";
+    return send(
+      chatId,
+      `📷 Đã tách ${res.extractedCount} tin nhắn từ ảnh nhưng chưa rõ khách nào. Đã lưu vào Hộp tin chưa phân loại.${sug}\nXem & gán tại: ${APP_URL}/inbox`,
+    );
+  } catch (e) {
+    console.error("handleImage error:", (e as Error).message);
+    return send(chatId, `Không đọc được ảnh chụp: ${(e as Error).message}`);
+  }
 }
 
 export async function handle(chatId: string, text: string) {
@@ -88,7 +230,12 @@ export async function handle(chatId: string, text: string) {
     await setActive(client.id);
     awaitingPick = null;
     const n = await attachHeld(chatId, client.id);
-    return send(chatId, `Đang làm việc với: ${client.name}` + (created ? "\nĐã tạo khách mới" : "") + (n ? `\n✓ Đã lưu ${n} tin trước đó` : ""));
+    return send(
+      chatId,
+      `Đang làm việc với: ${client.name}` +
+        (created ? "\nĐã tạo khách mới" : "") +
+        (n ? `\n✓ Đã gắn ${n} tin trước đó` : ""),
+    );
   }
   if (awaitingPick && /^\d+$/.test(t)) {
     const id = awaitingPick[Number(t) - 1];
@@ -98,15 +245,20 @@ export async function handle(chatId: string, text: string) {
         await setActive(id);
         awaitingPick = null;
         const n = await attachHeld(chatId, id);
-        return send(chatId, `Đang làm việc với: ${c.name}` + (n ? `\n✓ Đã lưu ${n} tin trước đó` : ""));
+        return send(chatId, `Đang làm việc với: ${c.name}` + (n ? `\n✓ Đã gắn ${n} tin trước đó` : ""));
       }
     }
     return send(chatId, "Số không hợp lệ, gõ /khach để xem lại danh sách.");
   }
 
-  const state = await getState();
-  const active = state.activeClientId && Date.now() - state.updatedAt.getTime() <= TTL_MS
-    ? await prisma.client.findUnique({ where: { id: state.activeClientId } }) : null;
+  const mention = await matchMentionPrefix(t);
+  if (mention) {
+    await addMessage({ clientId: mention.client.id, channel: "zalo", sender: "unknown", text: mention.text });
+    await setActive(mention.client.id);
+    return send(chatId, `✓ ${mention.client.name} (${await countPending(mention.client.id)} tin chờ)`);
+  }
+
+  const active = await getActiveClient();
 
   if (t === "/xong") {
     if (!active) return send(chatId, "Chưa chọn khách. Dùng /khach <tên> để chọn.");
@@ -122,16 +274,33 @@ export async function handle(chatId: string, text: string) {
   }
 
   if (!active) {
-    heldText.set(chatId, [...(heldText.get(chatId) ?? []), t]);
-    return send(chatId, "Chưa chọn khách (hoặc đã quá hạn). Dùng /khach <tên> để chọn, tin này sẽ được lưu cho khách đó.");
+    const sug = await suggestClientForText(t);
+    const saved = await addMessage({
+      clientId: null,
+      channel: "zalo",
+      sender: "unknown",
+      text: t,
+      suggestedClientId: sug?.clientId ?? null,
+      suggestedReason: sug?.reason ?? null,
+    });
+    heldMsgIds.set(chatId, [...(heldMsgIds.get(chatId) ?? []), saved.id]);
+    const hint = sug ? `\n💡 AI gợi ý: ${sug.clientName} (${sug.reason})` : "";
+    return send(
+      chatId,
+      `Chưa chọn khách — đã lưu vào Hộp tin chưa phân loại.${hint}\nGõ /khach <tên> để gán ngay hoặc xem tại ${APP_URL}/inbox`,
+    );
   }
+
   await addMessage({ clientId: active.id, channel: "zalo", sender: "unknown", text: t });
-  await setActive(active.id); // refresh TTL
+  await setActive(active.id);
   return send(chatId, `✓ ${active.name} (${await countPending(active.id)} tin chờ)`);
 }
 
 async function main() {
-  if (!TOKEN) { console.error("ZALO_BOT_TOKEN missing"); process.exit(1); }
+  if (!TOKEN) {
+    console.error("ZALO_BOT_TOKEN missing");
+    process.exit(1);
+  }
   const dw = await call("deleteWebhook");
   console.log("deleteWebhook ok:", dw.ok, dw.ok ? "" : `${dw.error_code} ${dw.description}`);
 
@@ -143,16 +312,26 @@ async function main() {
   for (;;) {
     try {
       const r = await call<Update | Update[]>("getUpdates", { timeout: 30 });
-      if (!r.ok && r.error_code === 408) { await sleep(300); continue; } // long-poll timeout = no updates
+      if (!r.ok && r.error_code === 408) {
+        await sleep(300);
+        continue;
+      }
       if (!r.ok) {
         console.error("getUpdates error:", r.error_code, r.description);
-        await sleep(backoff); backoff = Math.min(backoff * 2, 30000); continue;
+        await sleep(backoff);
+        backoff = Math.min(backoff * 2, 30000);
+        continue;
       }
       backoff = 1000;
       const list: Update[] = Array.isArray(r.result)
         ? r.result
-        : r.result && Object.keys(r.result).length ? [r.result] : [];
-      if (!list.length) { await sleep(500); continue; }
+        : r.result && Object.keys(r.result).length
+          ? [r.result]
+          : [];
+      if (!list.length) {
+        await sleep(500);
+        continue;
+      }
       for (const u of list) {
         const m = u.message;
         if (!m) continue;
@@ -161,15 +340,33 @@ async function main() {
         if (seen.has(m.message_id)) continue;
         seen.add(m.message_id);
         await prisma.botState.update({ where: { id: STATE_ID }, data: { lastUpdateId: m.message_id } });
-        if (u.event_name !== "message.text.received" || !m.text) continue;
-        try { await handle(m.chat.id, m.text); }
-        catch (e) { console.error("handle error:", (e as Error).message); }
+
+        const imgUrl = extractImageUrl(u);
+        if (imgUrl || u.event_name === "message.image.received" || u.event_name === "user_send_image") {
+          if (imgUrl) {
+            try {
+              await handleImage(m.chat.id, imgUrl);
+            } catch (e) {
+              console.error("handleImage error:", (e as Error).message);
+            }
+          }
+          continue;
+        }
+        if ((u.event_name === "message.text.received" || u.event_name === "user_send_text") && m.text) {
+          try {
+            await handle(m.chat.id, m.text);
+          } catch (e) {
+            console.error("handle error:", (e as Error).message);
+          }
+        }
       }
       await sleep(300);
     } catch (e) {
       console.error("poll error:", (e as Error).message);
-      await sleep(backoff); backoff = Math.min(backoff * 2, 30000);
+      await sleep(backoff);
+      backoff = Math.min(backoff * 2, 30000);
     }
   }
 }
+
 if (process.argv[1]?.endsWith("zalo-bot.ts")) main();

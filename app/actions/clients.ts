@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { createClient, updateClient, type ClientInput } from "@/lib/clients";
-import { addMessage } from "@/lib/messages";
+import { addMessage, assignMessageToClient, assignMessagesByContact } from "@/lib/messages";
 import { wrap } from "@/lib/result";
 
 function str(f: FormData, k: string) {
@@ -11,8 +11,7 @@ function str(f: FormData, k: string) {
 
 function parseForm(f: FormData): ClientInput {
   const emails = str(f, "emails").split(/[,;\s]+/).filter(Boolean);
-  const price = str(f, "contractPrice");
-  const effort = str(f, "baseEffort");
+  const budget = str(f, "budget");
   return {
     name: str(f, "name"),
     phone: str(f, "phone") || null,
@@ -20,17 +19,17 @@ function parseForm(f: FormData): ClientInput {
     zaloId: str(f, "zaloId") || null,
     note: str(f, "note") || null,
     projectName: str(f, "projectName") || null,
-    ...(price ? { contractPrice: Number(price) } : {}),
-    ...(effort ? { baseEffort: Number(effort) } : {}),
+    ...(budget ? { budget: Number(budget) } : {}),
   };
 }
 
-/** Returns the new client id; the UI navigates to /clients/[id]. */
+/** Creates a client, scans unassigned messages matching contacts, and auto-creates PR for v1 if matched. */
 export async function createClientAction(formData: FormData) {
   return wrap(async () => {
-    const c = await createClient(parseForm(formData));
+    const c = await createClient(parseForm(formData), { autoCreateInitialPR: true });
     revalidatePath("/");
-    return { id: c.id };
+    revalidatePath("/inbox");
+    return { id: c.id, initialPrId: c.initialPrId, attachedCount: c.attachedCount };
   });
 }
 
@@ -39,6 +38,7 @@ export async function updateClientAction(id: string, formData: FormData) {
     const f = parseForm(formData);
     await updateClient(id, f);
     revalidatePath("/");
+    revalidatePath("/inbox");
     revalidatePath(`/clients/${id}`);
     return { id };
   });
@@ -56,5 +56,25 @@ export async function addManualMessageAction(clientId: string, formData: FormDat
     revalidatePath("/");
     revalidatePath(`/clients/${clientId}`);
     return { id: m.id };
+  });
+}
+
+export async function assignMessageAction(messageId: string, clientId: string) {
+  return wrap(async () => {
+    const m = await assignMessageToClient(messageId, clientId);
+    revalidatePath("/");
+    revalidatePath("/inbox");
+    revalidatePath(`/clients/${clientId}`);
+    return { id: m.id, clientId };
+  });
+}
+
+export async function assignContactMessagesAction(contact: string, clientId: string) {
+  return wrap(async () => {
+    const r = await assignMessagesByContact(contact, clientId);
+    revalidatePath("/");
+    revalidatePath("/inbox");
+    revalidatePath(`/clients/${clientId}`);
+    return r;
   });
 }

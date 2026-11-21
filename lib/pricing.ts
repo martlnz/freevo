@@ -14,7 +14,7 @@ export async function getSerializablePricing(clientId: string, prId?: string): P
   }
   const unitPrice = past.length ? past.reduce((s, p) => s + p.price / Math.max(p.hours, 1), 0) / past.length : 0;
   const merged = await db.pullRequest.findMany({ where: { clientId, status: "merged" } });
-  const currentEffort = client.baseEffort + merged.reduce((s, p) => s + p.effortDelta, 0);
+  const currentEffort = merged.reduce((s, p) => s + p.effortDelta, 0);
   let delta = 0;
   if (prId) {
     const pr = await db.pullRequest.findUnique({ where: { id: prId } });
@@ -22,13 +22,15 @@ export async function getSerializablePricing(clientId: string, prId?: string): P
   }
   const proposedEffort = currentEffort + delta;
   const suggestedPrice = round100k(proposedEffort * unitPrice);
+  const budget = client.budget ?? null;
   return {
-    contractPrice: client.contractPrice,
+    budget,
+    netBudget: budget !== null ? calcNet(budget, taxRate) : null,
+    overBudget: budget !== null && suggestedPrice > budget,
     unitPrice,
     currentEffort,
     proposedEffort,
     suggestedPrice,
-    netCurrent: calcNet(client.contractPrice, taxRate),
     netSuggested: calcNet(suggestedPrice, taxRate),
     taxRate,
   };

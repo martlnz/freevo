@@ -68,9 +68,15 @@ export async function createPR(clientId: string) {
         changes: JSON.stringify(changes),
         summary: proposal.summary ?? "",
         effortDelta: Math.round(Number(proposal.effort_delta) || 0),
-        baseVersionNo: version?.number ?? null,
+        baseVersionNo: version?.number ?? 0,
       },
     });
+    if (proposal.detected_budget != null && Number(proposal.detected_budget) > 0) {
+      await tx.client.update({
+        where: { id: clientId },
+        data: { budget: Math.round(Number(proposal.detected_budget)) },
+      });
+    }
     await tx.message.updateMany({ where: { id: { in: messages.map((m) => m.id) } }, data: { prId: created.id } });
     return created;
   });
