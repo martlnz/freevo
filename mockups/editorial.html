@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Freevo · mockup EDITORIAL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============ TOKENS (portable to Tailwind theme.extend) ============ */
+:root{
+  --paper:#F4F0E6;      /* off-white paper */
+  --paper-2:#EAE4D4;    /* deeper paper, panels */
+  --ink:#121110;        /* ink: text + 2px borders */
+  --ink-soft:#4A463E;   /* secondary text */
+  --acid:#CCFF00;       /* THE accent: electric lime */
+  --add:#0E7A3B;        /* + add (ink-green) */
+  --add-bg:#D9F5B8;
+  --mod:#9A5B00;        /* ~ modify (ochre) */
+  --mod-bg:#FFE08A;
+  --rm:#E5391B;         /* - remove (vermilion) */
+  --rm-bg:#FFD3C8;
+  --font-display:'Bricolage Grotesque','Be Vietnam Pro',sans-serif;
+  --font-body:'Be Vietnam Pro',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --bw:2px;             /* border width */
+  --r:3px;              /* corner radius 0-4 */
+  --shadow:5px 5px 0 var(--ink);
+  --shadow-sm:3px 3px 0 var(--ink);
+  --gutter:24px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.55 var(--font-body);
+  background-image:radial-gradient(rgba(18,17,16,.07) 1px,transparent 1px);background-size:18px 18px}
+.mono{font-family:var(--font-mono)}
+.disp{font-family:var(--font-display);letter-spacing:-.035em;line-height:.9;font-weight:800}
+::selection{background:var(--acid)}
+
+/* ---------- ticker ---------- */
+.ticker{background:var(--ink);color:var(--paper);overflow:hidden;white-space:nowrap;border-bottom:var(--bw) solid var(--ink)}
+.ticker div{display:inline-block;padding:7px 0;animation:mq 38s linear infinite;font:600 12px var(--font-mono);letter-spacing:.06em;text-transform:uppercase}
+.ticker span{margin:0 22px}.ticker i{color:var(--acid);font-style:normal}
+@keyframes mq{to{transform:translateX(-50%)}}
+
+/* ---------- stepper bar ---------- */
+.bar{position:sticky;top:0;z-index:20;background:var(--paper);border-bottom:var(--bw) solid var(--ink);display:flex;align-items:stretch;overflow-x:auto}
+.bar .brand{font:800 26px/1 var(--font-display);letter-spacing:-.04em;padding:10px 18px;border-right:var(--bw) solid var(--ink);display:flex;align-items:center;gap:6px;flex:none}
+.brand i{font-style:normal;background:var(--acid);padding:0 5px;border:var(--bw) solid var(--ink);border-radius:var(--r);transform:rotate(-3deg);display:inline-block}
+.bar button.t{all:unset;cursor:pointer;padding:8px 16px;border-right:var(--bw) solid var(--ink);font:600 13px/1.2 var(--font-body);display:flex;flex-direction:column;justify-content:center;white-space:nowrap;flex:none;transition:background .15s}
+.bar button.t b{font:800 22px/1 var(--font-display);letter-spacing:-.04em}
+.bar button.t:hover{background:var(--paper-2)}
+.bar button.t.on{background:var(--ink);color:var(--paper)}.bar button.t.on b{color:var(--acid)}
+.bar .go{all:unset;cursor:pointer;margin-left:auto;background:var(--acid);border-left:var(--bw) solid var(--ink);padding:0 22px;font:800 15px var(--font-display);letter-spacing:-.01em;display:flex;align-items:center;gap:8px;white-space:nowrap;flex:none;transition:transform .12s}
+.bar .go:hover{background:var(--ink);color:var(--acid)}
+.bar .go:active{transform:translateY(2px)}
+
+.stage{max-width:1180px;margin:28px auto 60px;padding:0 var(--gutter)}
+.frame{display:none}.frame.on{display:block;animation:rise .45s cubic-bezier(.2,.8,.2,1)}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}}
+.note{display:flex;gap:12px;align-items:baseline;margin:0 0 14px;font-size:13px;color:var(--ink-soft)}
+.note .mono{background:var(--ink);color:var(--acid);padding:2px 8px;border-radius:var(--r);font-size:12px}
+
+/* ---------- app shell ---------- */
+.app{background:var(--paper);border:var(--bw) solid var(--ink);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;background-image:none}
+.top{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:var(--bw) solid var(--ink);flex-wrap:wrap;background:var(--paper)}
+.logo{font:800 24px/1 var(--font-display);letter-spacing:-.04em}.logo i{font-style:normal;background:var(--acid);padding:0 4px;border:var(--bw) solid var(--ink);border-radius:var(--r)}
+.pad{padding:24px}
+.kicker{font:600 11px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+.h-xl{font:800 clamp(44px,7vw,92px)/.88 var(--font-display);letter-spacing:-.045em;margin:0}
+.h-l{font:800 clamp(30px,4vw,48px)/.92 var(--font-display);letter-spacing:-.04em;margin:0}
+.h-xl em,.h-l em{font-style:normal;background:var(--acid);padding:0 .12em;border:var(--bw) solid var(--ink);border-radius:var(--r);display:inline-block;transform:rotate(-1.5deg)}
+
+.btn{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:8px;border:var(--bw) solid var(--ink);border-radius:var(--r);background:var(--paper);padding:8px 16px;font:700 14px var(--font-body);box-shadow:var(--shadow-sm);transition:transform .1s,box-shadow .1s}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink)}
+.btn:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
+.btn.p{background:var(--acid)}.btn.d{color:var(--rm)}.btn.k{background:var(--ink);color:var(--acid)}
+.chip{display:inline-block;font:600 12px var(--font-mono);padding:2px 8px;border:var(--bw) solid var(--ink);border-radius:var(--r);background:var(--paper)}
+.chip.v{background:var(--ink);color:var(--acid)}.chip.o{background:var(--mod-bg)}.chip.g{background:var(--add-bg)}.chip.r{background:var(--rm-bg)}
+.sticker{display:inline-block;font:800 12px var(--font-display);letter-spacing:.02em;text-transform:uppercase;padding:4px 10px;background:var(--acid);border:var(--bw) solid var(--ink);border-radius:var(--r);transform:rotate(-4deg);box-shadow:var(--shadow-sm)}
+.sticker.r{background:var(--rm);color:#fff;transform:rotate(3deg)}
+
+/* ---------- frame 1 list ---------- */
+.hero1{display:grid;grid-template-columns:1.4fr 1fr;gap:24px;align-items:end;margin-bottom:26px}
+.hero1 p{margin:0;color:var(--ink-soft);max-width:34ch}
+.tbl{border:var(--bw) solid var(--ink);border-radius:var(--r);background:#fff;box-shadow:var(--shadow-sm)}
+.row1{display:grid;grid-template-columns:60px 1.6fr .6fr 1fr 1fr 1.2fr;gap:12px;align-items:center;padding:16px 18px;border-bottom:var(--bw) solid var(--ink);transition:background .15s}
+.row1:last-child{border-bottom:0}.row1:not(.hd):hover{background:var(--acid)}
+.row1.hd{background:var(--ink);color:var(--paper);font:600 11px var(--font-mono);letter-spacing:.1em;text-transform:uppercase;padding:10px 18px}
+.row1 .no{font:800 34px/1 var(--font-display);letter-spacing:-.05em}
+.row1 .nm{font:800 22px/1 var(--font-display);letter-spacing:-.03em}.row1 small{color:var(--ink-soft);font-size:13px}
+.row1 .money{font:700 16px var(--font-mono)}
+
+/* ---------- frame 2 ---------- */
+.tabs{display:flex;border:var(--bw) solid var(--ink);border-radius:var(--r);overflow-x:auto;margin-bottom:22px;background:#fff;width:max-content;max-width:100%}
+.tabs span{padding:8px 16px;font:600 13px var(--font-body);border-right:var(--bw) solid var(--ink);white-space:nowrap}
+.tabs span:last-child{border-right:0}.tabs .a{background:var(--ink);color:var(--acid)}
+.grid2{display:grid;grid-template-columns:1.1fr 1fr;gap:22px}
+@media(max-width:860px){.grid2,.hero1{grid-template-columns:1fr}.row1{grid-template-columns:40px 1fr 1fr}.row1.hd{display:none}}
+.card{background:#fff;border:var(--bw) solid var(--ink);border-radius:var(--r);box-shadow:var(--shadow-sm)}
+.card.pad{padding:20px}
+.bub{max-width:88%;padding:9px 13px;border:var(--bw) solid var(--ink);border-radius:var(--r);margin:10px 0;font-size:14px;background:var(--paper);position:relative}
+.bub small{display:block;font:600 10px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:2px}
+.bub.me{margin-left:auto;background:var(--ink);color:var(--paper)}.bub.me small{color:var(--acid)}
+.bub mark{background:var(--acid);color:var(--ink);padding:0 3px;border-radius:2px}
+.req li{display:flex;gap:10px;padding:7px 0;border-bottom:var(--bw) dashed var(--ink);font-size:14px;list-style:none}
+.req{margin:10px 0 0;padding:0}.req b{font:700 12px var(--font-mono);min-width:64px}
+
+/* ---------- FRAME 3 SHOWPIECE ---------- */
+.pr-head{display:grid;grid-template-columns:auto 1fr auto;gap:22px;align-items:end;padding:26px 24px 22px;border-bottom:var(--bw) solid var(--ink);background:var(--paper)}
+.pr-head .num{font:800 clamp(80px,12vw,150px)/.78 var(--font-display);letter-spacing:-.07em;display:flex;align-items:flex-start}
+.pr-head .num sup{font:700 .22em/1 var(--font-mono);letter-spacing:0;margin:.4em .2em 0 0}
+.pr-head .meta{display:flex;flex-direction:column;gap:8px}
+.pr-head .meta .h-l{max-width:16ch}
+.pr-head .acts{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:860px){.pr-head{grid-template-columns:1fr}.pr-head .acts{justify-content:flex-start}}
+.pr-body{display:grid;grid-template-columns:1.1fr 1fr;gap:0}
+@media(max-width:860px){.pr-body{grid-template-columns:1fr}}
+.col-h{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:var(--ink);color:var(--paper)}
+.col-h .kicker{color:var(--acid)}
+.chg{display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;padding:18px 20px;border-bottom:var(--bw) solid var(--ink);cursor:pointer;position:relative;transition:background .15s,transform .15s}
+.chg .g{font:800 64px/.8 var(--font-display);text-align:center;letter-spacing:-.06em}
+.chg.add{background:var(--add-bg)}.chg.add .g{color:var(--add)}
+.chg.mod{background:var(--mod-bg)}.chg.mod .g{color:var(--mod)}
+.chg.rm{background:var(--rm-bg)}.chg.rm .g{color:var(--rm)}
+.chg h4{margin:0;font:800 22px/1.05 var(--font-display);letter-spacing:-.03em}
+.chg p{margin:4px 0 0;font-size:13px;color:var(--ink-soft)}
+.chg .hrs{font:700 12px var(--font-mono);margin-top:6px;display:inline-block;background:var(--ink);color:var(--paper);padding:1px 7px;border-radius:var(--r)}
+.chg:hover{filter:saturate(1.2);transform:translateX(3px)}
+.chg.sel{box-shadow:inset 8px 0 0 var(--ink);}
+.chg.sel::after{content:"BẰNG CHỨNG →";position:absolute;right:20px;bottom:6px;font:700 9px var(--font-mono);letter-spacing:.1em}
+.chg.off{background:var(--paper-2)}.chg.off .g,.chg.off h4{opacity:.35;text-decoration:line-through}
+.tg{width:52px;height:28px;border:var(--bw) solid var(--ink);border-radius:2px;background:var(--acid);position:relative;flex:none;transition:background .15s}
+.tg::after{content:"";position:absolute;top:2px;bottom:2px;width:20px;background:var(--ink);right:2px;transition:all .18s cubic-bezier(.3,1.5,.5,1)}
+.tg.off{background:#fff}.tg.off::after{right:calc(100% - 22px)}
+.ev{background:var(--paper-2);border-left:var(--bw) solid var(--ink);padding-bottom:18px;min-height:100%}
+@media(max-width:860px){.ev{border-left:0;border-top:var(--bw) solid var(--ink)}}
+.ev .in{padding:6px 20px}
+.ev .bub{transition:all .2s;opacity:.4;background:#fff}
+.ev .bub.hl{opacity:1;background:var(--acid);transform:translate(-3px,-3px);box-shadow:var(--shadow-sm)}
+.ev .bub.hl small{color:var(--ink)}
+.ev .bub .fin{position:absolute;top:-11px;right:10px;font:700 10px var(--font-mono);background:var(--ink);color:var(--acid);padding:1px 7px;border-radius:2px;letter-spacing:.06em}
+.ev .tag{display:inline-block;margin:14px 20px 0}
+/* price strip: oversized numerals */
+.price{display:grid;grid-template-columns:repeat(4,1fr);border-top:var(--bw) solid var(--ink);background:var(--paper)}
+.price>div{padding:18px 20px 16px;border-right:var(--bw) solid var(--ink);min-width:0}.price>div:last-child{border-right:0}
+.price small{display:block;font:600 11px var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.price b{display:block;font:800 clamp(34px,4.6vw,64px)/.95 var(--font-display);letter-spacing:-.05em;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.price b u{text-decoration:none;font:700 .3em var(--font-mono);letter-spacing:0;margin-left:4px;color:var(--ink-soft)}
+.price .hot{background:var(--acid)}.price .hot small{color:var(--ink)}
+.price .hrsb s{opacity:.35;font-size:.62em;margin-right:6px}
+.delta{display:inline-block;font:700 12px var(--font-mono);margin-top:6px;padding:1px 7px;border:var(--bw) solid var(--ink);border-radius:var(--r);background:#fff}
+@media(max-width:860px){.price{grid-template-columns:1fr 1fr}.price>div:nth-child(2){border-right:0}.price>div:nth-child(-n+2){border-bottom:var(--bw) solid var(--ink)}}
+
+/* ---------- frame 4 timeline ---------- */
+.tl{position:relative;padding:8px 0 8px 90px}
+.tl::before{content:"";position:absolute;left:38px;top:0;bottom:0;width:0;border-left:var(--bw) dashed var(--ink)}
+.node{position:relative;margin-bottom:22px}
+.node .vv{position:absolute;left:-90px;top:-4px;font:800 54px/1 var(--font-display);letter-spacing:-.06em;background:var(--paper);padding:2px 4px 2px 0;width:78px}
+.node .vv::after{content:"";position:absolute;right:-12px;top:22px;width:14px;height:14px;background:var(--acid);border:var(--bw) solid var(--ink);border-radius:50%}
+.node.first .vv{color:var(--ink)}
+.node .card{padding:16px 20px;display:flex;gap:18px;justify-content:space-between;flex-wrap:wrap;align-items:center}
+.node .card b.t{font:800 22px/1.05 var(--font-display);letter-spacing:-.03em;display:block}
+.node.first .card{background:var(--acid);box-shadow:var(--shadow)}
+.node .card small{color:var(--ink-soft);font-size:13px}.node.first small{color:var(--ink)}
+
+/* ---------- frame 5 phone ---------- */
+.phones{display:flex;justify-content:center;gap:50px;align-items:flex-start;flex-wrap:wrap}
+.phone{width:350px;max-width:100%;background:var(--paper);border:var(--bw) solid var(--ink);outline:10px solid var(--ink);outline-offset:-2px;border-radius:30px;box-shadow:10px 10px 0 var(--ink);overflow:hidden;margin:10px}
+.phone .sb{display:flex;justify-content:space-between;padding:10px 20px 4px;font:700 11px var(--font-mono)}
+.phone .in{padding:12px 18px 24px}
+.phone h2{font:800 40px/.9 var(--font-display);letter-spacing:-.045em;margin:12px 0 10px}
+.phone h2 em{font-style:normal;background:var(--acid);border:var(--bw) solid var(--ink);padding:0 6px;display:inline-block;transform:rotate(-2deg)}
+.phone .chg{grid-template-columns:44px 1fr;padding:14px;cursor:default}.phone .chg .g{font-size:46px}.phone .chg:hover{transform:none;filter:none}
+.phone .chg h4{font-size:18px}
+.big{all:unset;box-sizing:border-box;cursor:pointer;display:block;width:100%;text-align:center;padding:16px;border:var(--bw) solid var(--ink);border-radius:var(--r);font:800 20px var(--font-display);letter-spacing:-.02em;min-height:56px;margin-top:12px;box-shadow:var(--shadow-sm);transition:transform .1s,box-shadow .1s}
+.big:active{transform:translate(3px,3px);box-shadow:none}
+.big.p{background:var(--acid)}.big.s{background:#fff}
+.cost{margin-top:16px;border:var(--bw) solid var(--ink);border-radius:var(--r);background:var(--ink);color:var(--paper);padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+.cost b{font:800 36px/1 var(--font-display);letter-spacing:-.05em;color:var(--acid)}
+.cost span{font:600 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase}
+.side5{max-width:320px;padding-top:30px}.side5 p{color:var(--ink-soft)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,40px);background:var(--ink);color:var(--acid);padding:10px 18px;border-radius:var(--r);font:700 14px var(--font-body);opacity:0;pointer-events:none;transition:all .25s;z-index:50;border:var(--bw) solid var(--acid)}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="ticker"><div id="tk"></div></div>
+
+<div class="bar">
+  <div class="brand">free<i>vo</i></div>
+  <button class="t on" data-f="0"><b>01</b>Khách hàng</button>
+  <button class="t" data-f="1"><b>02</b>Chi tiết khách</button>
+  <button class="t" data-f="2"><b>03</b>Duyệt PR</button>
+  <button class="t" data-f="3"><b>04</b>Phiên bản</button>
+  <button class="t" data-f="4"><b>05</b>Khách xác nhận</button>
+  <button class="go" id="nx">Duyệt khung → tiếp</button>
+</div>
+
+<div class="stage">
+
+<!-- ============ FRAME 1 ============ -->
+<section class="frame on">
+<p class="note"><span class="mono">/</span> Danh sách khách — thấy ngay PR nào đang chờ duyệt.</p>
+<div class="app">
+  <div class="top"><span class="logo">free<i>vo</i></span><span class="chip g">● Anh Minh đang là khách hoạt động (Zalo)</span><span class="btn p" style="margin-left:auto">+ Thêm khách</span></div>
+  <div class="pad">
+    <div class="hero1">
+      <h1 class="h-xl">Ba khách,<br>một PR <em>chờ duyệt.</em></h1>
+      <p>Mọi tin nhắn Zalo và Gmail được gom lại thành thay đổi yêu cầu. Bạn chỉ cần duyệt.</p>
+    </div>
+    <div class="tbl">
+      <div class="row1 hd"><span>#</span><span>Khách</span><span>Bản</span><span>Tin chưa xử lý</span><span>PR</span><span>Hợp đồng</span></div>
+      <div class="row1"><span class="no">01</span><span><span class="nm">Anh Minh</span><br><small>Quán cafe Mộc</small></span><span><span class="chip v">v2</span></span><span><b>7</b> tin Zalo</span><span><span class="chip o">1 đang mở</span></span><span class="money">20.000.000đ</span></div>
+      <div class="row1"><span class="no">02</span><span><span class="nm">Chị Lan</span><br><small>Shop hoa Lan</small></span><span><span class="chip v">v1</span></span><span>0</span><span><span class="chip g">Đã merge</span></span><span class="money">12.000.000đ</span></div>
+      <div class="row1"><span class="no">03</span><span><span class="nm">Demo dự phòng</span><br><small>Nhập tay</small></span><span><span class="chip v">v1</span></span><span>0</span><span>—</span><span class="money">8.000.000đ</span></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============ FRAME 2 ============ -->
+<section class="frame">
+<p class="note"><span class="mono">/clients/[id]</span> Tab Hộp thư — tin nhắn Zalo/Gmail và nút tạo PR.</p>
+<div class="app">
+  <div class="top"><span class="logo">free<i>vo</i></span><span class="disp" style="font-size:26px;line-height:1">Anh Minh</span><span class="chip v">v2</span></div>
+  <div class="pad">
+    <div class="tabs"><span>Thông tin</span><span class="a">Hộp thư (7)</span><span>Yêu cầu hiện tại</span><span>Phiên bản</span><span>PR</span></div>
+    <div class="grid2">
+      <div class="card pad">
+        <div class="bub"><small>Zalo · 09:12</small>Em muốn thêm thanh toán VNPay nha anh</div>
+        <div class="bub me"><small>Bạn · 09:15</small>Ok anh, để em báo giá</div>
+        <div class="bub"><small>Zalo · 09:40</small>À thôi, VNPay phức tạp, dùng chuyển khoản thôi</div>
+        <div class="bub"><small>Gmail · 10:02</small>Bỏ luôn mục Blog nhé, mình chưa cần.</div>
+        <div class="bub"><small>Zalo · 10:20</small>Trang chủ làm thêm banner khuyến mãi</div>
+      </div>
+      <div class="card pad" style="background:var(--acid)">
+        <span class="sticker">Mới</span>
+        <h2 class="h-l" style="margin:14px 0 8px">Chưa gom vào PR</h2>
+        <p style="margin:0 0 16px">7 tin nhắn mới từ 09:12. AI sẽ lấy ý chốt cuối cùng của khách.</p>
+        <span class="btn k">Tạo PR từ 7 tin nhắn →</span>
+        <div style="margin-top:26px;border-top:var(--bw) solid var(--ink);padding-top:14px"><b class="disp" style="font-size:22px">Yêu cầu hiện tại · v2</b>
+        <ul class="req" style="margin-top:8px"><li><b>REQ-001</b>Trang chủ</li><li><b>REQ-002</b>Menu sản phẩm</li><li><b>REQ-003</b>Giỏ hàng</li><li><b>REQ-004</b>Blog</li><li><b>REQ-006</b>Đặt bàn</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============ FRAME 3 SHOWPIECE ============ -->
+<section class="frame">
+<p class="note"><span class="mono">/pr/[id]</span> Màn hình quan trọng nhất. Bấm một thay đổi để bằng chứng sáng lên; gạt công tắc để giá tính lại tức thì.</p>
+<div class="app">
+  <div class="pr-head">
+    <div class="num"><sup>PR</sup>12</div>
+    <div class="meta">
+      <span class="kicker">Anh Minh · Quán cafe Mộc</span>
+      <h2 class="h-l">Từ <em>v2</em> lên v3</h2>
+    </div>
+    <div class="acts"><span class="btn d">Từ chối</span><span class="btn p" id="mergeBtn">Merge 2/3 thay đổi</span></div>
+  </div>
+  <div class="pr-body">
+    <div>
+      <div class="col-h"><span class="kicker">Thay đổi · bấm để xem bằng chứng</span><span class="kicker" id="cnt">2/3 bật</span></div>
+      <div id="changes"></div>
+    </div>
+    <div class="ev">
+      <div class="col-h"><span class="kicker">Bằng chứng từ hộp thư</span><span class="kicker">AI lấy ý chốt</span></div>
+      <span class="sticker" id="evTag">Thanh toán chuyển khoản</span>
+      <div class="in" id="evid"></div>
+    </div>
+  </div>
+  <div class="price">
+    <div><small>Hợp đồng</small><b id="pContract">20.000.000<u>đ</u></b></div>
+    <div class="hrsb"><small>Công</small><b id="pHrs"><s>40</s>38<u>h</u></b><span class="delta" id="pDelta">−2h</span></div>
+    <div class="hot"><small>Giá gợi ý</small><b id="pSug">19.000.000<u>đ</u></b></div>
+    <div><small>Thực nhận · thuế 10%</small><b id="pNet">17.100.000<u>đ</u></b></div>
+  </div>
+</div>
+</section>
+
+<!-- ============ FRAME 4 ============ -->
+<section class="frame">
+<p class="note"><span class="mono">Tab Phiên bản</span> Lịch sử kiểu git, có Rollback và nút gửi link xác nhận.</p>
+<div class="app">
+  <div class="top"><span class="logo">free<i>vo</i></span><span class="disp" style="font-size:26px;line-height:1">Anh Minh</span><span class="chip v">v3</span></div>
+  <div class="pad">
+    <div class="tabs"><span>Thông tin</span><span>Hộp thư</span><span>Yêu cầu hiện tại</span><span class="a">Phiên bản</span><span>PR</span></div>
+    <div class="tl">
+      <div class="node first"><div class="vv">v3</div><div class="card"><div><b class="t">Merge PR #12</b><small>+1 thêm, −1 bỏ · Hôm nay 10:30</small><br><span class="chip o" style="margin-top:8px">Chờ khách xác nhận</span></div><span class="btn k" id="copyLink">Sao chép link /c/x7k2… ⧉</span></div></div>
+      <div class="node"><div class="vv">v2</div><div class="card"><div><b class="t">Thêm Đặt bàn (REQ-006)</b><small>Tuần trước</small><br><span class="chip g" style="margin-top:8px">Khách đã xác nhận</span></div><span class="btn">↺ Rollback về v2</span></div></div>
+      <div class="node"><div class="vv">v1</div><div class="card"><div><b class="t">Bản đầu tiên (5 yêu cầu)</b><small>2 tuần trước</small></div><span class="chip">gốc</span></div></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============ FRAME 5 ============ -->
+<section class="frame">
+<p class="note"><span class="mono">/c/[token]</span> Trang công khai cho khách, mở trên điện thoại, nút lớn.</p>
+<div class="phones">
+  <div class="phone">
+    <div class="sb"><span>9:41</span><span>●●● 5G</span></div>
+    <div class="in">
+      <div class="logo">free<i>vo</i></div>
+      <h2>Xác nhận <em>thay đổi</em></h2>
+      <p style="margin:0 0 14px;font-size:14px">Chào anh Minh, anh vui lòng xem các thay đổi sau <span class="chip v">v2 → v3</span></p>
+      <div class="card" style="overflow:hidden;box-shadow:var(--shadow-sm)">
+        <div class="chg add"><span class="g">+</span><div><h4>Thanh toán chuyển khoản</h4></div></div>
+        <div class="chg rm" style="border-bottom:0"><span class="g">−</span><div><h4>Blog</h4></div></div>
+      </div>
+      <div class="cost"><span>Chi phí điều chỉnh</span><b>−1.000.000đ</b></div>
+      <a class="big p" id="agree">Tôi đồng ý ✓</a>
+      <a class="big s">Cần chỉnh lại</a>
+    </div>
+  </div>
+  <div class="side5"><span class="sticker r">Nút ≥ 56px</span><h2 class="h-l" style="margin:16px 0 10px">Khách chỉ cần <em>một chạm.</em></h2><p>Không đăng nhập, không bảng giá phức tạp. Một danh sách thay đổi, một con số, hai nút.</p></div>
+</div>
+</section>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---- ticker ---- */
+(function(){
+  const items=['<i>+</i> Thanh toán chuyển khoản','<i>−</i> Blog','<i>~</i> Banner khuyến mãi','PR #12 chờ duyệt','Zalo · Gmail → yêu cầu','Ý chốt cuối cùng của khách','Giá tính lại tức thì'];
+  const s=items.map(t=>'<span>'+t+'</span>').join('');
+  document.getElementById('tk').innerHTML=s+s+s+s;
+})();
+
+/* ---- stepper ---- */
+const fs=[...document.querySelectorAll('.frame')],bs=[...document.querySelectorAll('[data-f]')];
+let cur=0;
+function go(i){fs.forEach((f,k)=>f.classList.toggle('on',k==i));bs.forEach((b,k)=>b.classList.toggle('on',k==i));window.scrollTo({top:0});cur=i}
+bs.forEach(b=>b.onclick=()=>go(+b.dataset.f));
+document.getElementById('nx').onclick=()=>go(cur>=fs.length-1?0:cur+1);
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')go(Math.min(cur+1,fs.length-1));if(e.key==='ArrowLeft')go(Math.max(cur-1,0))});
+
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>e.classList.remove('on'),1800)}
+document.getElementById('copyLink').onclick=()=>toast('Đã sao chép link xác nhận');
+document.getElementById('agree').onclick=()=>toast('Cảm ơn anh Minh, đã xác nhận v3');
+
+/* ---- frame 3: data + live price ---- */
+const CONTRACT=20000000, BASE_H=40, RATE=CONTRACT/BASE_H, TAX=.10;
+const msgs={
+  m1:{s:'Zalo · 09:12',t:'Em muốn thêm thanh toán VNPay nha anh'},
+  m2:{s:'Zalo · 09:40',t:'À thôi, VNPay phức tạp, <mark>dùng chuyển khoản thôi</mark>',fin:1},
+  m3:{s:'Gmail · 10:02',t:'<mark>Bỏ luôn mục Blog nhé</mark>, mình chưa cần.',fin:1},
+  m4:{s:'Zalo · 10:20',t:'Trang chủ làm <mark>thêm banner khuyến mãi</mark>',fin:1}
+};
+const changes=[
+  {id:'c1',k:'add',g:'+',title:'Thanh toán chuyển khoản',desc:'Hiển thị STK và mã QR khi đặt hàng',h:6,ev:['m1','m2'],on:true},
+  {id:'c2',k:'rm',g:'−',title:'Blog',desc:'REQ-004 · khách bỏ hẳn',h:-8,ev:['m3'],on:true},
+  {id:'c3',k:'mod',g:'~',title:'Banner khuyến mãi trang chủ',desc:'REQ-001 · chỉnh sửa',h:3,ev:['m4'],on:false}
+];
+let sel='c1';
+const fmt=n=>Math.round(n).toLocaleString('vi-VN');
+const $=id=>document.getElementById(id);
+const sgn=n=>(n>0?'+':n<0?'−':'±')+Math.abs(n)+'h';
+const cur$={sug:CONTRACT,net:CONTRACT*(1-TAX),h:BASE_H};
+
+function renderChanges(){
+  $('changes').innerHTML=changes.map(c=>`<div class="chg ${c.k} ${c.on?'':'off'} ${c.id===sel?'sel':''}" data-id="${c.id}">
+    <span class="g">${c.g}</span><div><h4>${c.title}</h4><p>${c.desc}</p><span class="hrs">${sgn(c.h)}</span></div>
+    <span class="tg ${c.on?'':'off'}" data-tg="${c.id}" role="switch" aria-checked="${c.on}"></span></div>`).join('');
+  $('changes').querySelectorAll('.chg').forEach(el=>el.onclick=e=>{
+    const id=el.dataset.id;
+    if(e.target.closest('.tg')){const c=changes.find(x=>x.id===id);c.on=!c.on}
+    sel=id;renderChanges();renderEv();renderPrice();
+  });
+}
+function renderEv(){
+  const c=changes.find(x=>x.id===sel);
+  $('evTag').textContent=c.title;
+  $('evid').innerHTML=Object.entries(msgs).map(([id,m])=>`<div class="bub ${c.ev.includes(id)?'hl':''}">${m.fin&&c.ev.includes(id)?'<span class="fin">Ý CHỐT</span>':''}<small>${m.s}</small>${m.t}</div>`).join('');
+}
+function tween(from,to,fn){const t0=performance.now(),d=450;(function s(t){const p=Math.min((t-t0)/d,1),e=1-Math.pow(1-p,3);fn(from+(to-from)*e);if(p<1)requestAnimationFrame(s)})(t0)}
+function renderPrice(){
+  const on=changes.filter(c=>c.on),dh=on.reduce((a,c)=>a+c.h,0),h=BASE_H+dh;
+  const sug=h*RATE,net=sug*(1-TAX);
+  $('mergeBtn').textContent=`Merge ${on.length}/${changes.length} thay đổi`;
+  $('cnt').textContent=`${on.length}/${changes.length} bật`;
+  $('pDelta').textContent=sgn(dh)+' so với v2';
+  tween(cur$.h,h,v=>$('pHrs').innerHTML=(dh?`<s>${BASE_H}</s>`:'')+Math.round(v)+'<u>h</u>');
+  tween(cur$.sug,sug,v=>$('pSug').innerHTML=fmt(v)+'<u>đ</u>');
+  tween(cur$.net,net,v=>$('pNet').innerHTML=fmt(v)+'<u>đ</u>');
+  cur$.h=h;cur$.sug=sug;cur$.net=net;
+}
+$('pContract').innerHTML=fmt(CONTRACT)+'<u>đ</u>';
+renderChanges();renderEv();renderPrice();
+</script>
+</body>
+</html>
