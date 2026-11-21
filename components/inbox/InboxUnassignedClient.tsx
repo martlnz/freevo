@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Info, Loader2, Sparkles, UploadCloud, UserPlus } from "lucide-react";
+import { CheckCircle2, Info, Loader2, Sparkles, UploadCloud, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { assignContactMessagesAction, assignMessageAction } from "@/app/actions/clients";
+import { assignContactMessagesAction, assignMessageAction, dismissUnassignedMessageAction } from "@/app/actions/clients";
 import { formatVND } from "@/lib/pricing-calc";
 import { ErrorBanner } from "@/components/clients/ErrorBanner";
 import { SyncGmailButton } from "@/components/gmail/SyncGmailButton";
@@ -196,6 +196,24 @@ export function InboxUnassignedClient({
     }
   }
 
+  async function dismissOne(messageId: string) {
+    setBusyKey("dismiss:" + messageId);
+    setActionError(null);
+    setActionInfo(null);
+    try {
+      const res = await dismissUnassignedMessageAction(messageId);
+      if (!res.ok) {
+        setActionError(res.error);
+        return;
+      }
+      router.refresh();
+    } catch {
+      setActionError("Không thể bỏ qua tin nhắn. Vui lòng thử lại.");
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
   const contactCounts = new Map<string, number>();
   for (const m of messages) {
     if (m.contact) contactCounts.set(m.contact, (contactCounts.get(m.contact) ?? 0) + 1);
@@ -311,6 +329,7 @@ export function InboxUnassignedClient({
             const chosen = selected[m.id] ?? "";
             const msgBusy = busyKey === "msg:" + m.id;
             const contactBusy = m.contact ? busyKey === "contact:" + m.contact : false;
+            const dismissBusy = busyKey === "dismiss:" + m.id;
             const sameContact = m.contact ? (contactCounts.get(m.contact) ?? 0) : 0;
             const isEmailContact = !!m.contact && EMAIL_RE.test(m.contact.trim());
             return (
@@ -330,6 +349,16 @@ export function InboxUnassignedClient({
                       />
                     </a>
                   ) : null}
+                  <button
+                    type="button"
+                    disabled={busyKey !== null}
+                    onClick={() => void dismissOne(m.id)}
+                    title="Bỏ qua tin này"
+                    className="inline-flex h-8 items-center gap-1 rounded-[8px] border border-hairline px-2 text-xs text-muted transition-colors hover:bg-ground hover:text-ink disabled:opacity-50"
+                  >
+                    <X className="size-3.5" />
+                    {dismissBusy ? "Đang xóa..." : "Bỏ qua"}
+                  </button>
                 </div>
 
                 <p className="whitespace-pre-wrap text-sm text-ink">{m.text}</p>

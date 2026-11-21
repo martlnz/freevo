@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { createClient, updateClient, type ClientInput } from "@/lib/clients";
-import { addMessage, assignMessageToClient, assignMessagesByContact } from "@/lib/messages";
+import { addMessage, assignMessageToClient, assignMessagesByContact, deleteUnassignedMessage } from "@/lib/messages";
 import { wrap } from "@/lib/result";
 
 function str(f: FormData, k: string) {
@@ -81,5 +81,14 @@ export async function assignContactMessagesAction(contact: string, clientId: str
     revalidatePath("/inbox");
     revalidatePath(`/clients/${clientId}`);
     return { count: r.count, learnedEmail: r.learnedEmail };
+  });
+}
+
+export async function dismissUnassignedMessageAction(messageId: string) {
+  return wrap(async () => {
+    const res = await deleteUnassignedMessage(messageId);
+    revalidatePath("/");
+    revalidatePath("/inbox");
+    return res;
   });
 }

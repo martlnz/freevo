@@ -158,3 +158,11 @@ export async function scanAndAttachMessagesForClient(client: {
   });
   return { attachedCount: updated.count };
 }
+
+export async function deleteUnassignedMessage(messageId: string) {
+  const msg = await db.message.findUnique({ where: { id: messageId }, select: { id: true, clientId: true } });
+  if (!msg) throw new Error("Không tìm thấy tin nhắn.");
+  if (msg.clientId !== null) throw new Error("Chỉ có thể bỏ qua tin nhắn chưa phân loại.");
+  await db.message.delete({ where: { id: messageId } });
+  return { id: messageId };
+}

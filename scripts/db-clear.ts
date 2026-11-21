@@ -5,6 +5,12 @@ import { resolve } from "node:path";
 import { db } from "../lib/db";
 
 async function main() {
+  const cursorPayload = JSON.stringify({
+    syncedAfter: new Date().toISOString(),
+    seenUids: [],
+    seenSentUids: [],
+  });
+
   await db.$transaction([
     db.confirmation.deleteMany(),
     db.version.deleteMany(),
@@ -12,7 +18,11 @@ async function main() {
     db.pullRequest.deleteMany(),
     db.pastProject.deleteMany(),
     db.client.deleteMany(),
-    db.botState.deleteMany({ where: { id: "gmail" } }),
+    db.botState.upsert({
+      where: { id: "gmail" },
+      update: { lastUpdateId: cursorPayload, updatedAt: new Date() },
+      create: { id: "gmail", lastUpdateId: cursorPayload },
+    }),
     db.botState.updateMany({ where: { id: "zalo" }, data: { activeClientId: null } }),
   ]);
 

@@ -7,9 +7,17 @@ import { addMessage } from "./messages";
 import { findMatchingClientByContact, suggestClientForText } from "./routing";
 
 const GMAIL_STATE_ID = "gmail";
-const LOOKBACK_DAYS = 7;
-const MAX_FETCH_PER_SYNC = 30;
+const DEFAULT_LOOKBACK_MS = 24 * 3600_000;
+const IMAP_SINCE_BUFFER_MS = 86400_000;
+const MAX_FETCH_INBOX = 30;
+const MAX_FETCH_SENT = 20;
 const MAX_SEEN_UIDS = 300;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const AUTOMATED_LOCAL_RE =
+  /^(no[-_.]?reply|donotreply|do[-_.]?not[-_.]?reply|mailer-daemon|postmaster|bounce|notifications?|notify|alert|security|news(letter)?|marketing|promo|updates?|billing)$/i;
+const AUTOMATED_DOMAIN_RE =
+  /^(accounts\.google\.com|google\.com|facebookmail\.com|shopee\.vn|lazada\.vn|tiktok\.com|github\.com|linkedin\.com)$/i;
 
 export type GmailSyncResult = {
   importedCount: number;
@@ -21,8 +29,17 @@ export type GmailSyncResult = {
 };
 
 type GmailCursor = {
+  syncedAfter?: string;
   uidValidity?: number;
   seenUids?: number[];
+  sentUidValidity?: number;
+  seenSentUids?: number[];
+};
+
+type RawFetchedMessage = {
+  uid: number;
+  source: Buffer;
+  sentAt: Date;
 };
 
 function readDotEnvMap(): Record<string, string> {
@@ -107,6 +124,38 @@ export function stripQuotedReply(raw: string): string {
   return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+export function isAutomatedEmail(opts: {
+  fromEmail: string;
+  headers?: {
+    listUnsubscribe?: unknown;
+    listId?: unknown;
+    autoSubmitted?: unknown;
+    precedence?: unknown;
+  };
+}): boolean {
+  const clean = normalizeEmail(opts.fromEmail);
+  const at = clean.indexOf("@");
+  if (at > 0) {
+    const local = clean.slice(0, at);
+    const domain = clean.slice(at + 1);
+    if (AUTOMATED_LOCAL_RE.test(local) || AUTOMATED_DOMAIN_RE.test(domain)) {
+      return true;
+    }
+  }
+
+  const h = opts.headers;
+  if (!h) return false;
+  if (h.listUnsubscribe || h.listId) return true;
+
+  const autoSub = typeof h.autoSubmitted === "string" ? h.autoSubmitted.trim().toLowerCase() : "";
+  if (autoSub && autoSub !== "no") return true;
+
+  const prec = typeof h.precedence === "string" ? h.precedence.trim() : "";
+  if (prec && /bulk|list|junk/i.test(prec)) return true;
+
+  return false;
+}
+
 export function resolveEmailRoutingMeta(opts: {
   myEmail: string;
   fromEmail: string;
@@ -115,11 +164,18 @@ export function resolveEmailRoutingMeta(opts: {
   subject: string;
   knownClientEmails: Set<string>;
   syncTag: string;
+  isAutomated?: boolean;
 }) {
   const myBase = stripPlusTag(opts.myEmail).base;
   const fromClean = normalizeEmail(opts.fromEmail);
   const fromBase = stripPlusTag(fromClean).base;
   const isSelfSent = Boolean(myBase) && fromBase === myBase;
+
+  if (!isSelfSent) {
+    const isKnownClient = Boolean(fromClean) && opts.knownClientEmails.has(fromClean);
+    const shouldImport = isKnownClient || !opts.isAutomated;
+    return { shouldImport, contact: fromClean, sender: "client" as const };
+  }
 
   let plusAliasEmail: string | null = null;
   for (const rawTo of opts.toEmails) {
@@ -134,11 +190,30 @@ export function resolveEmailRoutingMeta(opts: {
   const tagLower = opts.syncTag.trim().toLowerCase();
   const hasTag = Boolean(tagLower) && opts.subject.toLowerCase().includes(tagLower);
 
-  const contact = isSelfSent && plusAliasEmail ? plusAliasEmail : fromClean;
-  const isKnownClient = Boolean(contact) && opts.knownClientEmails.has(contact);
-  const shouldImport = Boolean(plusAliasEmail) || hasTag || isKnownClient;
+  if (plusAliasEmail) {
+    return { shouldImport: true, contact: plusAliasEmail, sender: "client" as const };
+  }
+  if (hasTag) {
+    return { shouldImport: true, contact: fromClean, sender: "client" as const };
+  }
+  return { shouldImport: false, contact: fromClean, sender: "client" as const };
+}
 
-  return { shouldImport, contact, sender: "client" as const };
+export function resolveSentEmailMeta(opts: {
+  myEmail: string;
+  toEmails: string[];
+  trackedClientEmails: Set<string>;
+}) {
+  const myBase = stripPlusTag(opts.myEmail).base;
+  for (const rawTo of opts.toEmails) {
+    const clean = normalizeEmail(rawTo);
+    if (!clean) continue;
+    if (stripPlusTag(clean).base === myBase) continue;
+    if (opts.trackedClientEmails.has(clean)) {
+      return { shouldImport: true, contact: clean, sender: "freelancer" as const };
+    }
+  }
+  return { shouldImport: false, contact: "", sender: "freelancer" as const };
 }
 
 function collectAddressEmails(field: AddressObject | AddressObject[] | undefined): string[] {
@@ -226,6 +301,20 @@ async function loadKnownClientEmails(): Promise<{ emails: Set<string>; hasClient
   return { emails, hasClients: clients.length > 0 };
 }
 
+async function loadUnassignedEmailContacts(): Promise<Set<string>> {
+  const rows = await db.message.findMany({
+    where: { clientId: null, contact: { not: null } },
+    select: { contact: true },
+  });
+  const set = new Set<string>();
+  for (const r of rows) {
+    if (r.contact && EMAIL_RE.test(r.contact.trim())) {
+      set.add(normalizeEmail(r.contact));
+    }
+  }
+  return set;
+}
+
 async function loadGmailCursor(): Promise<GmailCursor> {
   const row = await db.botState.findUnique({ where: { id: GMAIL_STATE_ID } });
   if (!row?.lastUpdateId) return {};
@@ -238,8 +327,11 @@ async function loadGmailCursor(): Promise<GmailCursor> {
 
 async function saveGmailCursor(cursor: GmailCursor) {
   const compact: GmailCursor = {
+    syncedAfter: cursor.syncedAfter,
     uidValidity: cursor.uidValidity,
     seenUids: (cursor.seenUids ?? []).slice(-MAX_SEEN_UIDS),
+    sentUidValidity: cursor.sentUidValidity,
+    seenSentUids: (cursor.seenSentUids ?? []).slice(-MAX_SEEN_UIDS),
   };
   await db.botState.upsert({
     where: { id: GMAIL_STATE_ID },
@@ -264,16 +356,86 @@ function formatImapError(err: unknown): Error {
   return err instanceof Error ? err : new Error(msg);
 }
 
+async function fetchMailboxRecent(
+  client: ImapFlow,
+  mailboxPath: string,
+  sinceDate: Date,
+  prevUidValidity: number | undefined,
+  prevSeen: Set<number>,
+  maxFetch: number,
+): Promise<{ uidValidity: number | undefined; seenSet: Set<number>; fetched: RawFetchedMessage[] }> {
+  const fetched: RawFetchedMessage[] = [];
+  let uidValidity = prevUidValidity;
+  let seenSet = new Set<number>(prevSeen);
+
+  const lock = await client.getMailboxLock(mailboxPath);
+  try {
+    const mb = client.mailbox;
+    const currentValidity = typeof mb === "object" && mb !== null ? Number(mb.uidValidity ?? 0) : 0;
+    if (currentValidity && prevUidValidity && currentValidity !== prevUidValidity) {
+      seenSet = new Set<number>();
+    }
+    uidValidity = currentValidity || prevUidValidity;
+
+    const found = await client.search({ since: sinceDate }, { uid: true });
+    const uids = Array.isArray(found) ? found : [];
+    const targetUids = uids.filter((uid) => !seenSet.has(uid)).slice(-maxFetch);
+
+    if (targetUids.length > 0) {
+      for await (const msg of client.fetch(
+        targetUids.join(","),
+        { uid: true, source: true, internalDate: true },
+        { uid: true },
+      )) {
+        if (!msg.source) continue;
+        const sentAt =
+          msg.internalDate instanceof Date
+            ? msg.internalDate
+            : msg.internalDate
+              ? new Date(msg.internalDate)
+              : new Date();
+        fetched.push({ uid: msg.uid, source: msg.source, sentAt });
+      }
+    }
+  } finally {
+    lock.release();
+  }
+
+  return { uidValidity, seenSet, fetched };
+}
+
+async function findSentMailboxPath(client: ImapFlow): Promise<string> {
+  try {
+    const boxes = await client.list();
+    const special = boxes.find((b) => b.specialUse === "\\Sent");
+    if (special) return special.path;
+  } catch {
+    // fall back to Gmail default path
+  }
+  return "[Gmail]/Sent Mail";
+}
+
 export async function syncGmailInbox(): Promise<GmailSyncResult> {
   const { user, pass, syncTag } = readGmailConfig();
-  const [{ emails: knownClientEmails, hasClients }, cursor] = await Promise.all([
+  const [{ emails: knownClientEmails, hasClients }, unassignedContacts, cursor] = await Promise.all([
     loadKnownClientEmails(),
+    loadUnassignedEmailContacts(),
     loadGmailCursor(),
   ]);
 
-  const rawFetched: Array<{ uid: number; source: Buffer; sentAt: Date }> = [];
-  let currentUidValidity = cursor.uidValidity;
-  let seenSet = new Set<number>(cursor.seenUids ?? []);
+  const syncedAfterMs = cursor.syncedAfter ? new Date(cursor.syncedAfter).getTime() : Date.now() - DEFAULT_LOOKBACK_MS;
+  const searchSince = new Date(syncedAfterMs - IMAP_SINCE_BUFFER_MS);
+
+  let inboxRes = {
+    uidValidity: cursor.uidValidity,
+    seenSet: new Set<number>(cursor.seenUids ?? []),
+    fetched: [] as RawFetchedMessage[],
+  };
+  let sentRes = {
+    uidValidity: cursor.sentUidValidity,
+    seenSet: new Set<number>(cursor.seenSentUids ?? []),
+    fetched: [] as RawFetchedMessage[],
+  };
 
   const client = new ImapFlow({
     host: "imap.gmail.com",
@@ -285,38 +447,27 @@ export async function syncGmailInbox(): Promise<GmailSyncResult> {
 
   try {
     await client.connect();
-    const lock = await client.getMailboxLock("INBOX");
+    inboxRes = await fetchMailboxRecent(
+      client,
+      "INBOX",
+      searchSince,
+      cursor.uidValidity,
+      new Set<number>(cursor.seenUids ?? []),
+      MAX_FETCH_INBOX,
+    );
+
     try {
-      const mb = client.mailbox;
-      const uidValidity = typeof mb === "object" && mb !== null ? Number(mb.uidValidity ?? 0) : 0;
-      if (uidValidity && currentUidValidity && uidValidity !== currentUidValidity) {
-        seenSet = new Set<number>();
-      }
-      currentUidValidity = uidValidity || currentUidValidity;
-
-      const since = new Date(Date.now() - LOOKBACK_DAYS * 86400_000);
-      const found = await client.search({ since }, { uid: true });
-      const uids = Array.isArray(found) ? found : [];
-      const targetUids = uids.filter((uid) => !seenSet.has(uid)).slice(-MAX_FETCH_PER_SYNC);
-
-      if (targetUids.length > 0) {
-        for await (const msg of client.fetch(
-          targetUids.join(","),
-          { uid: true, source: true, internalDate: true },
-          { uid: true },
-        )) {
-          if (!msg.source) continue;
-          const sentAt =
-            msg.internalDate instanceof Date
-              ? msg.internalDate
-              : msg.internalDate
-                ? new Date(msg.internalDate)
-                : new Date();
-          rawFetched.push({ uid: msg.uid, source: msg.source, sentAt });
-        }
-      }
-    } finally {
-      lock.release();
+      const sentPath = await findSentMailboxPath(client);
+      sentRes = await fetchMailboxRecent(
+        client,
+        sentPath,
+        searchSince,
+        cursor.sentUidValidity,
+        new Set<number>(cursor.seenSentUids ?? []),
+        MAX_FETCH_SENT,
+      );
+    } catch {
+      // Sent Mail sync is best-effort; INBOX remains intact
     }
   } catch (err) {
     throw formatImapError(err);
@@ -328,16 +479,30 @@ export async function syncGmailInbox(): Promise<GmailSyncResult> {
   let matchedCount = 0;
   let unassignedCount = 0;
   const matchedClientIds = new Set<string>();
-  const nextSeenUids = [...seenSet];
+  const newlyImportedContacts = new Set<string>();
+  const nextSeenUids = [...inboxRes.seenSet];
+  const nextSeenSentUids = [...sentRes.seenSet];
 
-  for (const item of rawFetched) {
+  for (const item of inboxRes.fetched) {
     const parsed = await simpleParser(item.source);
+    const sentAt = parsed.date ?? item.sentAt;
+    if (sentAt.getTime() < syncedAfterMs) continue;
+
     const fromAddr = parsed.from?.value?.[0];
     const fromEmail = fromAddr?.address ? normalizeEmail(fromAddr.address) : "";
     if (!fromEmail) continue;
 
     const toEmails = collectRecipientEmails(parsed);
     const subject = parsed.subject ?? "";
+    const automated = isAutomatedEmail({
+      fromEmail,
+      headers: {
+        listUnsubscribe: parsed.headers.get("list-unsubscribe"),
+        listId: parsed.headers.get("list-id"),
+        autoSubmitted: parsed.headers.get("auto-submitted"),
+        precedence: parsed.headers.get("precedence"),
+      },
+    });
     const meta = resolveEmailRoutingMeta({
       myEmail: user,
       fromEmail,
@@ -346,13 +511,13 @@ export async function syncGmailInbox(): Promise<GmailSyncResult> {
       subject,
       knownClientEmails,
       syncTag,
+      isAutomated: automated,
     });
 
     if (!meta.shouldImport) continue;
 
     const rawBody = parsed.text?.trim() ? parsed.text : parsed.html ? htmlToText(parsed.html) : "";
     const text = formatEmailMessageText(subject, rawBody, syncTag);
-    const sentAt = parsed.date ?? item.sentAt;
 
     const matched = await findMatchingClientByContact({ contact: meta.contact });
     if (matched) {
@@ -381,16 +546,67 @@ export async function syncGmailInbox(): Promise<GmailSyncResult> {
       unassignedCount++;
     }
 
+    newlyImportedContacts.add(meta.contact);
     importedCount++;
-    if (!seenSet.has(item.uid)) {
-      seenSet.add(item.uid);
+    if (!inboxRes.seenSet.has(item.uid)) {
+      inboxRes.seenSet.add(item.uid);
       nextSeenUids.push(item.uid);
     }
   }
 
+  const trackedClientEmails = new Set<string>([
+    ...knownClientEmails,
+    ...unassignedContacts,
+    ...newlyImportedContacts,
+  ]);
+
+  for (const item of sentRes.fetched) {
+    const parsed = await simpleParser(item.source);
+    const sentAt = parsed.date ?? item.sentAt;
+    if (sentAt.getTime() < syncedAfterMs) continue;
+
+    const toEmails = collectRecipientEmails(parsed);
+    const meta = resolveSentEmailMeta({
+      myEmail: user,
+      toEmails,
+      trackedClientEmails,
+    });
+    if (!meta.shouldImport) continue;
+
+    const subject = parsed.subject ?? "";
+    const rawBody = parsed.text?.trim() ? parsed.text : parsed.html ? htmlToText(parsed.html) : "";
+    const text = formatEmailMessageText(subject, rawBody, syncTag);
+
+    const matched = await findMatchingClientByContact({ contact: meta.contact });
+    await addMessage({
+      clientId: matched?.id ?? null,
+      channel: "gmail",
+      sender: meta.sender,
+      contact: meta.contact,
+      text,
+      sentAt,
+    });
+
+    if (matched) {
+      matchedCount++;
+      matchedClientIds.add(matched.id);
+    } else {
+      unassignedCount++;
+    }
+
+    importedCount++;
+    if (!sentRes.seenSet.has(item.uid)) {
+      sentRes.seenSet.add(item.uid);
+      nextSeenSentUids.push(item.uid);
+    }
+  }
+
   await saveGmailCursor({
-    uidValidity: currentUidValidity,
+    syncedAfter: cursor.syncedAfter ?? new Date(syncedAfterMs).toISOString(),
+    uidValidity: inboxRes.uidValidity,
     seenUids: nextSeenUids,
+    sentUidValidity: sentRes.uidValidity,
+    seenSentUids: nextSeenSentUids,
   });
 
   return {

@@ -41,7 +41,7 @@ export function SyncGmailButton({ variant = "outline" }: { variant?: "outline" |
       if (d.importedCount === 0) {
         setStatus({
           kind: "ok",
-          text: `Không có email mới nào khớp khách hàng, +alias hoặc ${d.syncTag}.`,
+          text: "Chưa có email mới nào từ khách hàng.",
         });
       } else {
         const parts: string[] = [];
