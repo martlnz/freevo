@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { assignContactMessagesAction, assignMessageAction } from "@/app/actions/clients";
 import { formatVND } from "@/lib/pricing-calc";
 import { ErrorBanner } from "@/components/clients/ErrorBanner";
+import { SyncGmailButton } from "@/components/gmail/SyncGmailButton";
 import { badgeBase, channelLabel, formatDateTime, senderLabel } from "@/components/clients/shared";
 
 export type UnassignedMessageView = {
@@ -202,11 +203,14 @@ export function InboxUnassignedClient({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Hộp tin chưa phân loại</h1>
-        <p className="mt-1 text-sm text-muted">
-          Dán hoặc kéo thả ảnh chụp hội thoại Zalo, Gmail để AI tự nhận diện khách và tách tin nhắn. Tin chưa rõ khách sẽ nằm ở danh sách bên dưới.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">Hộp tin chưa phân loại</h1>
+          <p className="mt-1 text-sm text-muted">
+            Dán hoặc kéo thả ảnh chụp hội thoại Zalo, Gmail để AI tự nhận diện khách, hoặc đồng bộ trực tiếp từ Gmail cá nhân.
+          </p>
+        </div>
+        <SyncGmailButton />
       </div>
 
       <div

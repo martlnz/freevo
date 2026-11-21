@@ -3,6 +3,7 @@ import { calcNet, calcPriceForNet } from "./pricing-calc";
 import type { Pricing, SerializablePricing } from "./types";
 
 const round100k = (n: number) => Math.round(n / 100000) * 100000;
+const DEFAULT_UNIT_PRICE = Number(process.env.DEFAULT_UNIT_PRICE ?? "772917");
 
 export async function getSerializablePricing(clientId: string, prId?: string): Promise<SerializablePricing> {
   const taxRate = Number(process.env.TAX_RATE ?? "0.1");
@@ -12,7 +13,9 @@ export async function getSerializablePricing(clientId: string, prId?: string): P
   if (past.length === 0) {
     past = await db.pastProject.findMany();
   }
-  const unitPrice = past.length ? past.reduce((s, p) => s + p.price / Math.max(p.hours, 1), 0) / past.length : 0;
+  const unitPrice = past.length
+    ? past.reduce((s, p) => s + p.price / Math.max(p.hours, 1), 0) / past.length
+    : DEFAULT_UNIT_PRICE;
   const merged = await db.pullRequest.findMany({ where: { clientId, status: "merged" } });
   const currentEffort = merged.reduce((s, p) => s + p.effortDelta, 0);
   let delta = 0;

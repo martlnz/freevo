@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { buttonVariants } from "@/components/ui/button";
 import { ConfirmationBadge } from "@/components/clients/ConfirmationBadge";
+import { SyncGmailButton } from "@/components/gmail/SyncGmailButton";
 import { listClients } from "@/lib/clients";
 import { countUnassignedMessages } from "@/lib/messages";
 import { formatVND } from "@/lib/pricing-calc";
@@ -31,9 +32,12 @@ export default async function HomePage() {
             {clients.length} khách · {withPending} khách có tin chờ · {withOpenPr} khách có PR đang mở
           </p>
         </div>
-        <Link href="/clients/new" className={buttonVariants({ variant: "default" })}>
-          + Khách mới
-        </Link>
+        <div className="flex flex-wrap items-start gap-2">
+          <SyncGmailButton />
+          <Link href="/clients/new" className={buttonVariants({ variant: "default" })}>
+            + Khách mới
+          </Link>
+        </div>
       </div>
 
       {clients.length === 0 ? (
