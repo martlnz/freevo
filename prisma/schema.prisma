@@ -1,0 +1,71 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "sqlite"
+  url = env("DATABASE_URL") }
+
+// SQLite: list fields (emails) are stored as JSON strings.
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  emails    String   @default("[]")
+  zaloId    String?  @unique
+  note      String?
+  createdAt DateTime @default(now())
+  messages  Message[]
+  prs       PullRequest[]
+  versions  Version[]
+  pastProjects PastProject[]
+}
+model Message {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  channel   String   // zalo | gmail | manual
+  sender    String   // client | freelancer
+  text      String
+  sentAt    DateTime @default(now())
+  prId      String?
+}
+model PullRequest {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  status    String   @default("open") // open | merged | rejected
+  changes   String   // JSON Change[]
+  createdAt DateTime @default(now())
+  mergedAt  DateTime?
+  confirmation Confirmation?
+}
+model Version {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  number    Int
+  snapshot  String   // JSON Requirement[]
+  prId      String?
+  createdAt DateTime @default(now())
+  @@unique([clientId, number])
+}
+model Confirmation {
+  id        String   @id @default(cuid())
+  token     String   @unique @default(cuid())
+  prId      String   @unique
+  pr        PullRequest @relation(fields: [prId], references: [id])
+  status    String   @default("pending") // pending | confirmed | declined
+  note      String?
+  respondedAt DateTime?
+}
+model PastProject {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  name      String
+  price     Int
+  hours     Int
+}
+model BotState {
+  id             String   @id
+  activeClientId String?
+  updatedAt      DateTime @default(now())
+  lastUpdateId   String?
+}
