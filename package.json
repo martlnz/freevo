@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "db:reset": "prisma db push --force-reset --skip-generate && prisma generate && tsx --env-file=.env prisma/seed.ts",
-    "test:pr": "tsx --env-file=.env scripts/test-create-pr.ts"
+    "test:pr": "tsx --env-file=.env scripts/test-create-pr.ts",
+    "zalo-bot": "tsx scripts/zalo-bot.ts",
+    "zalo-probe": "tsx scripts/zalo-probe.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.12.0",
