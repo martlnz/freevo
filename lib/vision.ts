@@ -32,7 +32,7 @@ export async function saveUploadedImage(buffer: Buffer, mimeType: string): Promi
   const dir = resolve(process.cwd(), "public", "uploads");
   mkdirSync(dir, { recursive: true });
   writeFileSync(resolve(dir, filename), buffer);
-  return `/uploads/${filename}`;
+  return `/api/uploads/${filename}`;
 }
 
 const SCREENSHOT_SCHEMA = {
