@@ -45,6 +45,7 @@ type Update = {
     message_id: string;
     date?: number;
     text?: string;
+    caption?: string;
     photo_url?: string;
     image_url?: string;
     attachments?: Attachment[];
@@ -162,6 +163,26 @@ function guessMimeFromPath(p: string): string {
   return "image/png";
 }
 
+function guessMimeFromBuffer(buf: Buffer): string | null {
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (buf.length >= 4 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
+    return "image/png";
+  }
+  if (buf.length >= 4 && buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) {
+    return "image/gif";
+  }
+  if (
+    buf.length >= 12 &&
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+    buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
 async function loadPhotoBuffer(photoUrl: string): Promise<{ buffer: Buffer; mimeType: string; name: string }> {
   if (photoUrl.startsWith("data:")) {
     const m = photoUrl.match(/^data:([^;]+);base64,(.+)$/);
@@ -173,8 +194,10 @@ async function loadPhotoBuffer(photoUrl: string): Promise<{ buffer: Buffer; mime
   }
   const resp = await fetch(photoUrl);
   if (!resp.ok) throw new Error(`Không tải được ảnh (${resp.status}).`);
-  const mimeType = resp.headers.get("content-type")?.split(";")[0] || guessMimeFromPath(photoUrl);
-  return { buffer: Buffer.from(await resp.arrayBuffer()), mimeType, name: photoUrl };
+  const buffer = Buffer.from(await resp.arrayBuffer());
+  const rawHeader = resp.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() ?? "";
+  const mimeType = rawHeader.startsWith("image/") ? rawHeader : (guessMimeFromBuffer(buffer) ?? guessMimeFromPath(photoUrl));
+  return { buffer, mimeType, name: photoUrl };
 }
 
 export async function handleImage(chatId: string, photoUrl: string) {
@@ -187,6 +210,12 @@ export async function handleImage(chatId: string, photoUrl: string) {
       filenameHint: name,
       clientId: active?.id ?? null,
       channelOverride: "zalo",
+    });
+    console.log("image processed:", {
+      client: res.clientName ?? "unassigned",
+      extracted: res.extractedCount,
+      detectedContactName: res.detectedContactName,
+      sourceImage: res.sourceImage,
     });
 
     if (res.clientId && res.clientName) {
@@ -336,10 +365,14 @@ async function main() {
         const m = u.message;
         if (!m) continue;
         appendFileSync("zalo-raw.log", JSON.stringify(u) + "\n");
-        console.log("update:", u.event_name, m.message_id, JSON.stringify(m.text ?? ""));
+        console.log("update:", u.event_name, m.message_id, JSON.stringify(m.text ?? m.caption ?? ""));
         if (seen.has(m.message_id)) continue;
+        await prisma.botState.upsert({
+          where: { id: STATE_ID },
+          update: { lastUpdateId: m.message_id },
+          create: { id: STATE_ID, lastUpdateId: m.message_id },
+        });
         seen.add(m.message_id);
-        await prisma.botState.update({ where: { id: STATE_ID }, data: { lastUpdateId: m.message_id } });
 
         const imgUrl = extractImageUrl(u);
         if (imgUrl || u.event_name === "message.image.received" || u.event_name === "user_send_image") {
