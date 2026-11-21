@@ -14,6 +14,28 @@ export type MessageInput = {
 
 const normContact = (s: string) => s.toLowerCase().normalize("NFC").replace(/\s+/g, " ").trim();
 const normDigits = (s: string) => s.replace(/\D/g, "");
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function learnClientEmail(clientId: string, contact: string | null): Promise<string | null> {
+  const email = contact?.trim() ?? "";
+  if (!EMAIL_RE.test(email)) return null;
+  const client = await db.client.findUnique({ where: { id: clientId }, select: { emails: true } });
+  if (!client) return null;
+  let list: string[] = [];
+  try {
+    const parsed = JSON.parse(client.emails);
+    if (Array.isArray(parsed)) list = parsed.map(String);
+  } catch {
+    list = [];
+  }
+  const lower = email.toLowerCase();
+  if (list.some((e) => e.trim().toLowerCase() === lower)) return null;
+  await db.client.update({
+    where: { id: clientId },
+    data: { emails: JSON.stringify([...list, email]) },
+  });
+  return email;
+}
 
 export async function addMessage(data: MessageInput) {
   if (!data.text || !data.text.trim()) throw new Error("Nội dung tin nhắn không được để trống.");
@@ -63,10 +85,26 @@ export async function assignMessageToClient(messageId: string, clientId: string)
   ]);
   if (!msg) throw new Error("Không tìm thấy tin nhắn.");
   if (!client) throw new Error("Không tìm thấy khách hàng.");
-  return db.message.update({
+  const updated = await db.message.update({
     where: { id: messageId },
     data: { clientId, suggestedClientId: null, suggestedReason: null },
   });
+  let learnedEmail: string | null = null;
+  let totalAssignedCount = 1;
+  if (msg.contact && EMAIL_RE.test(msg.contact.trim())) {
+    learnedEmail = await learnClientEmail(clientId, msg.contact);
+    const target = normContact(msg.contact);
+    const siblings = await db.message.findMany({ where: { clientId: null, contact: { not: null } } });
+    const siblingIds = siblings.filter((m) => m.contact && normContact(m.contact) === target).map((m) => m.id);
+    if (siblingIds.length > 0) {
+      const r = await db.message.updateMany({
+        where: { id: { in: siblingIds } },
+        data: { clientId, suggestedClientId: null, suggestedReason: null },
+      });
+      totalAssignedCount += r.count;
+    }
+  }
+  return { ...updated, learnedEmail, totalAssignedCount };
 }
 
 export async function assignMessagesByContact(contact: string, clientId: string) {
@@ -76,12 +114,13 @@ export async function assignMessagesByContact(contact: string, clientId: string)
   if (!client) throw new Error("Không tìm thấy khách hàng.");
   const unassigned = await db.message.findMany({ where: { clientId: null, contact: { not: null } } });
   const ids = unassigned.filter((m) => m.contact && normContact(m.contact) === target).map((m) => m.id);
-  if (ids.length === 0) return { count: 0 };
+  const learnedEmail = await learnClientEmail(clientId, contact);
+  if (ids.length === 0) return { count: 0, learnedEmail };
   const r = await db.message.updateMany({
     where: { id: { in: ids } },
     data: { clientId, suggestedClientId: null, suggestedReason: null },
   });
-  return { count: r.count };
+  return { count: r.count, learnedEmail };
 }
 
 export async function scanAndAttachMessagesForClient(client: {

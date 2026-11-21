@@ -65,7 +65,12 @@ export async function assignMessageAction(messageId: string, clientId: string) {
     revalidatePath("/");
     revalidatePath("/inbox");
     revalidatePath(`/clients/${clientId}`);
-    return { id: m.id, clientId };
+    return {
+      id: m.id,
+      clientId,
+      learnedEmail: m.learnedEmail,
+      totalAssignedCount: m.totalAssignedCount,
+    };
   });
 }
 
@@ -75,6 +80,6 @@ export async function assignContactMessagesAction(contact: string, clientId: str
     revalidatePath("/");
     revalidatePath("/inbox");
     revalidatePath(`/clients/${clientId}`);
-    return r;
+    return { count: r.count, learnedEmail: r.learnedEmail };
   });
 }

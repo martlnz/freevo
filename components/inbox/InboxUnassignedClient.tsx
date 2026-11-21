@@ -44,8 +44,10 @@ type UploadNotice =
   | { kind: "matched"; clientId: string; clientName: string; count: number; budget: number | null }
   | { kind: "unassigned"; count: number; suggestion: string | null; reason: string | null };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function newClientHref(contact: string): string {
-  return `/clients/new?${contact.includes("@") ? "email=" + encodeURIComponent(contact) : "contact=" + encodeURIComponent(contact)}`;
+  return `/clients/new?${EMAIL_RE.test(contact.trim()) ? "email=" + encodeURIComponent(contact.trim()) : "contact=" + encodeURIComponent(contact.trim())}`;
 }
 
 export function InboxUnassignedClient({
@@ -153,6 +155,13 @@ export function InboxUnassignedClient({
         setActionError(res.error);
         return;
       }
+      if (res.data.learnedEmail) {
+        setActionInfo(
+          `Đã lưu ${res.data.learnedEmail} vào khách hàng và gom ${res.data.totalAssignedCount} tin — email sau từ địa chỉ này sẽ tự động vào đúng khách.`,
+        );
+      } else if (res.data.totalAssignedCount > 1) {
+        setActionInfo(`Đã gom ${res.data.totalAssignedCount} tin cùng liên hệ vào khách hàng.`);
+      }
       router.refresh();
     } catch {
       setActionError("Không thể gán tin nhắn. Vui lòng thử lại.");
@@ -171,7 +180,13 @@ export function InboxUnassignedClient({
         setActionError(res.error);
         return;
       }
-      setActionInfo(`Đã gán ${res.data.count} tin từ ${contact} cho khách hàng.`);
+      if (res.data.learnedEmail) {
+        setActionInfo(
+          `Đã lưu ${res.data.learnedEmail} vào khách hàng và gom ${res.data.count} tin — email sau từ địa chỉ này sẽ tự động vào đúng khách.`,
+        );
+      } else {
+        setActionInfo(`Đã gán ${res.data.count} tin từ ${contact} cho khách hàng.`);
+      }
       router.refresh();
     } catch {
       setActionError("Không thể gán hàng loạt tin nhắn. Vui lòng thử lại.");
@@ -293,6 +308,7 @@ export function InboxUnassignedClient({
             const msgBusy = busyKey === "msg:" + m.id;
             const contactBusy = m.contact ? busyKey === "contact:" + m.contact : false;
             const sameContact = m.contact ? (contactCounts.get(m.contact) ?? 0) : 0;
+            const isEmailContact = !!m.contact && EMAIL_RE.test(m.contact.trim());
             return (
               <li key={m.id} className="flex flex-col gap-3 rounded-[14px] border border-hairline bg-surface p-4">
                 <div className="flex flex-wrap items-center gap-2">
@@ -314,73 +330,123 @@ export function InboxUnassignedClient({
 
                 <p className="whitespace-pre-wrap text-sm text-ink">{m.text}</p>
 
-                {m.suggestedClientId && m.suggestedClientName ? (
-                  <div className="flex flex-col gap-2 rounded-[10px] border border-accent/30 bg-add-tint px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-start gap-2 text-sm">
-                      <Sparkles className="mt-0.5 size-4 shrink-0 text-accent" />
-                      <div>
-                        <div className="font-medium text-ink">{`AI gợi ý: ${m.suggestedClientName}`}</div>
-                        {m.suggestedReason ? <div className="text-xs text-muted">{m.suggestedReason}</div> : null}
+                {isEmailContact && m.contact ? (
+                  <>
+                    <div className="flex flex-col gap-2 rounded-[10px] border border-accent/30 bg-add-tint px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="text-sm">
+                        <div className="font-medium text-ink">Email mới chưa có trong danh bạ khách hàng</div>
+                        <div className="text-xs text-muted">
+                          {sameContact > 1
+                            ? `Có ${sameContact} email từ ${m.contact} sẽ được gom tự động để dựng v1.`
+                            : `Tạo hồ sơ khách với ${m.contact} để tự động gom email dựng v1.`}
+                        </div>
                       </div>
+                      <Link
+                        href={newClientHref(m.contact)}
+                        className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-[10px] bg-accent px-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                      >
+                        <UserPlus className="size-4" />
+                        Tạo khách &amp; dựng v1 ngay
+                      </Link>
                     </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={busyKey !== null}
-                      onClick={() => void assignOne(m.id, m.suggestedClientId as string)}
-                    >
-                      {msgBusy ? "Đang gán..." : `Gán cho ${m.suggestedClientName}`}
-                    </Button>
-                  </div>
-                ) : null}
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <select
-                    value={chosen}
-                    onChange={(e) => setSelected((prev) => ({ ...prev, [m.id]: e.target.value }))}
-                    aria-label="Chọn khách hàng"
-                    className="h-11 min-w-0 flex-1 rounded-[10px] border border-hairline bg-surface px-3 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                  >
-                    <option value="">Chọn khách hàng để gán...</option>
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.projectName ? `${c.name} — ${c.projectName}` : c.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={!chosen || busyKey !== null}
-                    onClick={() => void assignOne(m.id, chosen)}
-                  >
-                    {msgBusy ? "Đang gán..." : "Gán"}
-                  </Button>
-                </div>
+                    <div className="flex flex-col gap-2 border-t border-hairline pt-2 sm:flex-row sm:items-center">
+                      <span className="text-xs text-muted sm:shrink-0">Hoặc đây là email phụ của khách cũ?</span>
+                      <select
+                        value={chosen}
+                        onChange={(e) => setSelected((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                        aria-label="Chọn khách hàng"
+                        className="h-10 min-w-0 flex-1 rounded-[10px] border border-hairline bg-surface px-3 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      >
+                        <option value="">Chọn khách hàng...</option>
+                        {clients.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.projectName ? `${c.name} — ${c.projectName}` : c.name}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!chosen || busyKey !== null}
+                        onClick={() => void assignOne(m.id, chosen)}
+                      >
+                        {msgBusy ? "Đang lưu..." : "Lưu email & gán"}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {m.suggestedClientId && m.suggestedClientName ? (
+                      <div className="flex flex-col gap-2 rounded-[10px] border border-accent/30 bg-add-tint px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-2 text-sm">
+                          <Sparkles className="mt-0.5 size-4 shrink-0 text-accent" />
+                          <div>
+                            <div className="font-medium text-ink">{`AI gợi ý: ${m.suggestedClientName}`}</div>
+                            {m.suggestedReason ? <div className="text-xs text-muted">{m.suggestedReason}</div> : null}
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={busyKey !== null}
+                          onClick={() => void assignOne(m.id, m.suggestedClientId as string)}
+                        >
+                          {msgBusy ? "Đang gán..." : `Gán cho ${m.suggestedClientName}`}
+                        </Button>
+                      </div>
+                    ) : null}
 
-                {m.contact ? (
-                  <div className="flex flex-col gap-2 border-t border-hairline pt-3 sm:flex-row sm:items-center">
-                    <Link
-                      href={newClientHref(m.contact)}
-                      className="inline-flex h-11 items-center justify-center gap-1 rounded-[10px] border border-accent/40 px-3 text-sm font-medium text-accent hover:bg-add-tint"
-                    >
-                      <UserPlus className="size-4" />
-                      Tạo khách mới &amp; tự dựng v1
-                    </Link>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={!chosen || busyKey !== null}
-                      onClick={() => void assignContact(m.contact as string, chosen)}
-                    >
-                      {contactBusy
-                        ? "Đang gán..."
-                        : `Gán tất cả tin từ ${m.contact}${sameContact > 1 ? ` (${sameContact})` : ""}`}
-                    </Button>
-                  </div>
-                ) : null}
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <select
+                        value={chosen}
+                        onChange={(e) => setSelected((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                        aria-label="Chọn khách hàng"
+                        className="h-11 min-w-0 flex-1 rounded-[10px] border border-hairline bg-surface px-3 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      >
+                        <option value="">Chọn khách hàng để gán...</option>
+                        {clients.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.projectName ? `${c.name} — ${c.projectName}` : c.name}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!chosen || busyKey !== null}
+                        onClick={() => void assignOne(m.id, chosen)}
+                      >
+                        {msgBusy ? "Đang gán..." : "Gán"}
+                      </Button>
+                    </div>
+
+                    {m.contact ? (
+                      <div className="flex flex-col gap-2 border-t border-hairline pt-3 sm:flex-row sm:items-center">
+                        <Link
+                          href={newClientHref(m.contact)}
+                          className="inline-flex h-11 items-center justify-center gap-1 rounded-[10px] border border-accent/40 px-3 text-sm font-medium text-accent hover:bg-add-tint"
+                        >
+                          <UserPlus className="size-4" />
+                          Tạo khách mới &amp; tự dựng v1
+                        </Link>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={!chosen || busyKey !== null}
+                          onClick={() => void assignContact(m.contact as string, chosen)}
+                        >
+                          {contactBusy
+                            ? "Đang gán..."
+                            : `Gán tất cả tin từ ${m.contact}${sameContact > 1 ? ` (${sameContact})` : ""}`}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </>
+                )}
               </li>
             );
           })}

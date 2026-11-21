@@ -108,8 +108,17 @@ async function main() {
   // assign remaining unassigned Zalo message to Anh Minh
   const unassignedAfter = await listUnassignedMessages();
   check("còn 1 tin Zalo chưa phân loại có gợi ý Anh Minh", unassignedAfter.length === 1 && !!unassignedAfter[0].suggestedClientId, unassignedAfter);
-  await assignMessageToClient(unassignedAfter[0].id, unassignedAfter[0].suggestedClientId!);
+  const minhId = unassignedAfter[0].suggestedClientId!;
+  await assignMessageToClient(unassignedAfter[0].id, minhId);
   check("sau khi gán còn 0 tin chưa phân loại", (await listUnassignedMessages()).length === 0);
+
+  // auto-learn secondary email when assigning unknown Gmail to existing client
+  const gm1 = await db.message.create({ data: { clientId: null, channel: "gmail", sender: "client", contact: "minh.work@example.com", text: "Email từ công ty của Anh Minh 1" } });
+  await db.message.create({ data: { clientId: null, channel: "gmail", sender: "client", contact: "minh.work@example.com", text: "Email từ công ty của Anh Minh 2" } });
+  const learnedRes = await assignMessageToClient(gm1.id, minhId);
+  const minhAfter = await db.client.findUniqueOrThrow({ where: { id: minhId } });
+  check("assignMessageToClient tự học email phụ + gom cả 2 tin", learnedRes.learnedEmail === "minh.work@example.com" && learnedRes.totalAssignedCount === 2, learnedRes);
+  check("Client.emails đã lưu minh.work@example.com và sạch inbox", JSON.parse(minhAfter.emails).includes("minh.work@example.com") && (await listUnassignedMessages()).length === 0);
 
   console.log(fails === 0 ? "\nTẤT CẢ PASS" : `\n${fails} FAIL`);
   process.exitCode = fails === 0 ? 0 : 1;
