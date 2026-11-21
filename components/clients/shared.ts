@@ -9,9 +9,8 @@ export type MessageView = {
   text: string;
   sentAt: string;
   prId: string | null;
-};
-
-export type VersionView = {
+  sourceImage: string | null;
+}; = {
   id: string;
   number: number;
   note: string | null;
@@ -49,8 +48,8 @@ export type ClientView = {
   emails: string[];
   zaloId: string | null;
   note: string | null;
-  contractPrice: number;
-  baseEffort: number;
+  budget: number | null;
+  currentEffort: number;
   pendingCount: number;
   latestVersionNo: number;
   requirements: Req[];

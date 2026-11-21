@@ -8,6 +8,7 @@ import { CreatePRButton } from "@/components/clients/CreatePRButton";
 import { badgeBase, type ClientView, type MessageView } from "@/components/clients/shared";
 import { getClientDetail } from "@/lib/clients";
 import { listMessages } from "@/lib/messages";
+import { formatVND } from "@/lib/pricing-calc";
 import type { Req } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +50,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     text: m.text,
     sentAt: m.sentAt.toISOString(),
     prId: m.prId,
+    sourceImage: m.sourceImage ?? null,
   }));
 
   const latestVersionNo = detail.versions[0]?.number ?? 0;
@@ -62,8 +64,8 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
     emails: detail.emails,
     zaloId: detail.zaloId,
     note: detail.note,
-    contractPrice: detail.contractPrice,
-    baseEffort: detail.baseEffort,
+    budget: detail.budget,
+    currentEffort: detail.currentEffort,
     pendingCount: detail.pendingCount,
     latestVersionNo,
     requirements: detail.latestSnapshot.requirements ?? [],
@@ -116,11 +118,15 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold tracking-tight text-ink">{client.name}</h1>
               <span className={`${badgeBase} bg-ground text-ink border border-hairline tabular`}>
-                v{client.latestVersionNo}
+                {client.latestVersionNo > 0 ? `v${client.latestVersionNo}` : "Chưa có v1"}
               </span>
               {client.latestConfirmation ? <ConfirmationBadge status={client.latestConfirmation.status} /> : null}
             </div>
             <p className="mt-1 text-sm text-muted">{client.projectName || "Chưa đặt tên dự án"}</p>
+            <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted tabular">
+              <span>Ngân sách: {client.budget ? formatVND(client.budget) : "Chưa nêu"}</span>
+              <span>Khối lượng: {client.currentEffort} điểm</span>
+            </p>
             {client.latestConfirmation ? (
               <div className="mt-3">
                 <ConfirmLinkActions token={client.latestConfirmation.token} />

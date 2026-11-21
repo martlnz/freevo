@@ -12,6 +12,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/" className="text-muted transition-colors hover:text-ink">
               Khách hàng
             </Link>
+            <Link href="/inbox" className="text-muted transition-colors hover:text-ink">
+              Chưa phân loại
+            </Link>
             <Link
               href="/clients/new"
               className="inline-flex h-9 items-center rounded-[10px] border border-hairline bg-surface px-3 text-ink transition-colors hover:bg-ground"

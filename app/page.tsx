@@ -3,17 +3,27 @@ import { AppShell } from "@/components/AppShell";
 import { buttonVariants } from "@/components/ui/button";
 import { ConfirmationBadge } from "@/components/clients/ConfirmationBadge";
 import { listClients } from "@/lib/clients";
+import { countUnassignedMessages } from "@/lib/messages";
 import { formatVND } from "@/lib/pricing-calc";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const clients = await listClients();
+  const [clients, unassignedCount] = await Promise.all([listClients(), countUnassignedMessages()]);
   const withPending = clients.filter((c) => c.pendingCount > 0).length;
   const withOpenPr = clients.filter((c) => c.openPrCount > 0).length;
 
   return (
     <AppShell>
+      {unassignedCount > 0 ? (
+        <Link
+          href="/inbox"
+          className="mb-4 flex flex-col gap-1 rounded-[10px] border border-modify/30 bg-modify-tint px-4 py-3 text-sm font-medium text-modify transition-opacity hover:opacity-90 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <span className="tabular">Có {unassignedCount} tin nhắn chưa phân loại</span>
+          <span className="underline underline-offset-2">Xem &amp; gán khách →</span>
+        </Link>
+      ) : null}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Khách hàng</h1>
@@ -38,7 +48,7 @@ export default async function HomePage() {
             <span>Version</span>
             <span>Tin chờ</span>
             <span>PR mở</span>
-            <span className="text-right">Giá hợp đồng</span>
+            <span className="text-right">Ngân sách khách</span>
           </div>
           <ul className="divide-y divide-hairline">
             {clients.map((c) => (
@@ -52,7 +62,12 @@ export default async function HomePage() {
                     <span className="block truncate text-sm text-muted">{c.projectName || "Chưa đặt tên dự án"}</span>
                   </span>
                   <span className="tabular text-sm text-ink">
-                    <span className="mr-2 text-xs text-muted md:hidden">Version:</span>v{c.currentVersionNo}
+                    <span className="mr-2 text-xs text-muted md:hidden">Version:</span>
+                    {c.currentVersionNo > 0 ? (
+                      <>v{c.currentVersionNo}</>
+                    ) : (
+                      <span className="text-muted">Chưa chốt v1</span>
+                    )}
                   </span>
                   <span className="text-sm">
                     <span className="mr-2 text-xs text-muted md:hidden">Tin chờ:</span>
@@ -74,10 +89,15 @@ export default async function HomePage() {
                       <span className="text-muted">—</span>
                     )}
                     {c.latestConfirmationStatus ? <ConfirmationBadge status={c.latestConfirmationStatus} /> : null}
+                    {c.currentEffort > 0 ? (
+                      <span className="text-xs text-muted tabular">{c.currentEffort} điểm</span>
+                    ) : null}
                   </span>
-                  <span className="tabular text-sm font-medium text-ink md:text-right">
-                    <span className="mr-2 text-xs font-normal text-muted md:hidden">Giá:</span>
-                    {formatVND(c.contractPrice)}
+                  <span
+                    className={`tabular text-sm md:text-right ${c.budget !== null ? "font-medium text-ink" : "text-muted"}`}
+                  >
+                    <span className="mr-2 text-xs font-normal text-muted md:hidden">Ngân sách:</span>
+                    {c.budget !== null ? formatVND(c.budget) : "Chưa nêu"}
                   </span>
                 </Link>
               </li>

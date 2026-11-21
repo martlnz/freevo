@@ -49,8 +49,7 @@ export function InfoTab({ client }: { client: ClientView }) {
             emails: client.emails.join(", "),
             phone: client.phone,
             zaloId: client.zaloId,
-            contractPrice: client.contractPrice,
-            baseEffort: client.baseEffort,
+            budget: client.budget,
             note: client.note,
           }}
         />
