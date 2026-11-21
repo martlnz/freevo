@@ -57,10 +57,10 @@ body:after{content:"";position:fixed;inset:-50%;z-index:1;pointer-events:none;op
 .pad{position:relative;padding:24px}
 .glass{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.06),inset 0 0 40px rgba(255,255,255,.012),0 8px 30px rgba(0,0,0,.25);backdrop-filter:blur(10px)}
-h1,h2{margin:0;letter-spacing:-.04em;line-height:1.05}
+h1,h2{margin:0;letter-spacing:-.04em;line-height:1.15}
 h1{font-size:clamp(28px,4vw,44px);font-weight:800}
 h2{font-size:22px;font-weight:700}
-.eyebrow{font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--tx-3)}
+.eyebrow{margin-bottom:10px;font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--tx-3)}
 
 /* buttons */
 .btn{display:inline-flex;align-items:center;gap:8px;font:500 14px var(--font);color:var(--tx);background:var(--surface-2);border:1px solid var(--hairline-2);border-radius:12px;padding:9px 16px;cursor:pointer;transition:all .25s var(--ease);min-height:40px}
@@ -98,7 +98,7 @@ tbody tr{transition:background .25s}tbody tr:hover{background:rgba(255,255,255,.
 .bub.me{margin-left:auto;border-radius:18px 18px 6px 18px;background:rgba(34,211,238,.08);border-color:rgba(34,211,238,.22)}
 .bub small{display:block;font:500 11px var(--mono);color:var(--tx-3);margin-bottom:3px}
 .bub mark{background:linear-gradient(transparent 60%,rgba(251,191,36,.35) 0);color:inherit;padding:0 2px}
-.ev .bub{opacity:.35;transform:scale(.985)}
+.ev .bub{opacity:.5;transform:scale(.985)}
 .ev .bub.hl{opacity:1;transform:none;border-color:rgba(52,211,153,.55);background:rgba(52,211,153,.07);box-shadow:0 0 0 1px rgba(52,211,153,.2),0 0 30px rgba(52,211,153,.18)}
 .ev .bub.hl.k-rm{border-color:rgba(251,113,133,.55);background:var(--rm-bg);box-shadow:0 0 30px var(--rm-glow)}
 .ev .bub.hl.k-mod{border-color:rgba(251,191,36,.55);background:var(--mod-bg);box-shadow:0 0 30px var(--mod-glow)}
@@ -135,7 +135,7 @@ tbody tr{transition:background .25s}tbody tr:hover{background:rgba(255,255,255,.
 .tl .row:first-child .node{box-shadow:0 0 24px rgba(34,211,238,.4);color:#03110B;background:var(--grad);border:0}
 
 /* phone */
-.phone-wrap{display:grid;place-items:center;padding:20px 0 0;position:relative}
+.phone-wrap{overflow:hidden;display:grid;place-items:center;padding:20px 0 0;position:relative}
 .phone-wrap:before{content:"";position:absolute;width:520px;height:520px;top:40px;background:radial-gradient(closest-side,rgba(52,211,153,.22),rgba(34,211,238,.08) 60%,transparent);filter:blur(10px)}
 .phone{position:relative;width:340px;max-width:100%;min-height:660px;border-radius:46px;padding:12px;background:linear-gradient(160deg,#2a2f3a,#0d0f14);border:1px solid var(--hairline-2);box-shadow:0 40px 90px rgba(0,0,0,.7),0 0 0 1px #000,inset 0 0 0 1px rgba(255,255,255,.06)}
 .screen{position:relative;border-radius:36px;background:var(--bg-2);min-height:636px;padding:48px 18px 24px;overflow:hidden;display:flex;flex-direction:column}
@@ -181,7 +181,7 @@ tbody tr{transition:background .25s}tbody tr:hover{background:rgba(255,255,255,.
 <div class="chg add sel on" tabindex="0" data-ev="0" data-h="6"><span class="g">+</span><div><b>Thanh toán chuyển khoản</b><div class="sub">Hiển thị STK và mã QR khi đặt hàng · <span class="h">+6h</span></div></div><button class="tg" aria-label="Bật/tắt"></button></div>
 <div class="chg rm on" tabindex="0" data-ev="1" data-h="-8"><span class="g">−</span><div><b>Blog</b><div class="sub">REQ-004 · khách bỏ hẳn · <span class="h">−8h</span></div></div><button class="tg" aria-label="Bật/tắt"></button></div>
 <div class="chg mod off" tabindex="0" data-ev="2" data-h="3"><span class="g">~</span><div><b>Banner khuyến mãi trang chủ</b><div class="sub">REQ-001 · <span class="h">+3h</span></div></div><button class="tg off" aria-label="Bật/tắt"></button></div></div>
-<div class="glass pad"><div class="eyebrow" style="margin-bottom:6px">Bằng chứng</div><div class="ev" id="ev">
+<div class="glass pad"><div class="eyebrow">Bằng chứng</div><div class="ev" id="ev">
 <div class="bub" data-ev="0"><small>Zalo · 09:12</small>Em muốn thêm thanh toán VNPay nha anh</div>
 <div class="bub" data-ev="0" data-main><small>Zalo · 09:40 · ý chốt</small><mark>VNPay phức tạp, dùng chuyển khoản thôi</mark></div>
 <div class="bub" data-ev="1" data-k="rm"><small>Gmail · 10:02 · ý chốt</small><mark>Bỏ luôn mục Blog nhé, mình chưa cần.</mark></div>
