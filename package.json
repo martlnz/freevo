@@ -1,6 +1,7 @@
 {
-  "name": "chotkeo",
+  "name": "freevo",
   "version": "0.1.0",
+  "description": "Git-inspired requirement version control and AI pull-request workspace for freelancers.",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -H 0.0.0.0",

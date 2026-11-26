@@ -7,7 +7,7 @@ export type Change = {
 };
 export type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
-// ---- Backend domain types (HACKATHON_PLAN section 5 + budget & vision) ----
+// ---- Backend domain types (requirements, PR diff, pricing & vision) ----
 export type Req = {
   id: string; // "REQ-001", fixed
   title: string;

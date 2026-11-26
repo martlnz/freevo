@@ -89,7 +89,7 @@ function parseBudgetHint(messages: LlmMessage[]): number | null {
   return null;
 }
 
-/** Deterministic fallback for offline tests & demo fallback (only when LLM_MOCK=1). */
+/** Deterministic mock proposal for offline tests and local development (when LLM_MOCK=1). */
 function mockProposal(messages: LlmMessage[]): LlmProposal {
   const find = (re: RegExp) => messages.find((m) => re.test(m.text))?.ref;
   const refs = (...rs: (string | undefined)[]) => rs.filter((r): r is string => !!r);

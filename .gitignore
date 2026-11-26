@@ -41,5 +41,8 @@ yarn-error.log*
 next-env.d.ts
 
 !.env.example
+
+# local database, uploads & worker logs
 /prisma/*.db*
+/public/uploads/
 zalo-raw.log
